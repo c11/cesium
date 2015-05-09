@@ -24,7 +24,7 @@ defineSuite([
         Entity,
         EntityCollection) {
     "use strict";
-    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn,runs,waits,waitsFor*/
+    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn*/
 
     var time = JulianDate.now();
 
@@ -63,7 +63,9 @@ defineSuite([
     });
 
     it('properly tracks resolved property', function() {
-        var testObject = new Entity('testId');
+        var testObject = new Entity({
+            id : 'testId'
+        });
         testObject.billboard = new BillboardGraphics();
         testObject.billboard.scale = new ConstantProperty(5);
 
@@ -82,41 +84,50 @@ defineSuite([
 
         //Change to exist target property is reflected in reference.
         testObject.billboard.scale.setValue(6);
+        expect(listener).toHaveBeenCalledWith(property);
         expect(property.isConstant).toEqual(true);
         expect(property.getValue(time)).toEqual(6);
-        expect(listener).toHaveBeenCalledWith(property);
-        listener.reset();
+        listener.calls.reset();
 
         //Assignment of new leaf property to existing target is reflected in reference.
         testObject.billboard.scale = new ConstantProperty(7);
+        expect(listener).toHaveBeenCalledWith(property);
         expect(property.isConstant).toEqual(true);
         expect(property.getValue(time)).toEqual(7);
-        expect(listener).toHaveBeenCalledWith(property);
-        listener.reset();
+        listener.calls.reset();
 
         //Assignment of non-leaf property to existing target is reflected in reference.
         testObject.billboard = new BillboardGraphics();
         testObject.billboard.scale = new ConstantProperty(8);
+        expect(listener).toHaveBeenCalledWith(property);
         expect(property.isConstant).toEqual(true);
         expect(property.getValue(time)).toEqual(8);
-        expect(listener).toHaveBeenCalledWith(property);
-        listener.reset();
+        listener.calls.reset();
 
-        //Removing an adding a new object is properly referenced.
+        //Removing an object should cause the reference to be severed but maintain last value
         collection.remove(testObject);
 
-        var testObject2 = new Entity('testId');
+        expect(listener).not.toHaveBeenCalledWith();
+        expect(property.isConstant).toEqual(true);
+        expect(property.getValue(time)).toEqual(8);
+        listener.calls.reset();
+
+        //adding a new object should re-wire the reference.
+        var testObject2 = new Entity({
+            id : 'testId'
+        });
         testObject2.billboard = new BillboardGraphics();
         testObject2.billboard.scale = new ConstantProperty(9);
         collection.add(testObject2);
+        expect(listener).toHaveBeenCalledWith(property);
         expect(property.isConstant).toEqual(true);
         expect(property.getValue(time)).toEqual(9);
-        expect(listener).toHaveBeenCalledWith(property);
-        listener.reset();
     });
 
     it('works with position properties', function() {
-        var testObject = new Entity('testId');
+        var testObject = new Entity({
+            id : 'testId'
+        });
         testObject.position = new ConstantPositionProperty(new Cartesian3(1, 2, 3), ReferenceFrame.FIXED);
 
         var collection = new EntityCollection();
@@ -131,9 +142,11 @@ defineSuite([
     });
 
     it('works with material properties', function() {
-        var testObject = new Entity('testId');
+        var testObject = new Entity({
+            id : 'testId'
+        });
         testObject.addProperty('testMaterial');
-        testObject.testMaterial = ColorMaterialProperty.fromColor(Color.WHITE);
+        testObject.testMaterial = new ColorMaterialProperty(Color.WHITE);
 
         var collection = new EntityCollection();
         collection.add(testObject);
@@ -170,11 +183,15 @@ defineSuite([
     });
 
     it('does not raise definition changed when target entity has not changed.', function() {
-        var testObject = new Entity('testId');
+        var testObject = new Entity({
+            id : 'testId'
+        });
         testObject.billboard = new BillboardGraphics();
         testObject.billboard.scale = new ConstantProperty(5);
 
-        var otherObject = new Entity('other');
+        var otherObject = new Entity({
+            id : 'other'
+        });
 
         var collection = new EntityCollection();
         collection.add(testObject);
@@ -189,7 +206,7 @@ defineSuite([
         collection.remove(otherObject);
         expect(listener).not.toHaveBeenCalled();
         collection.remove(testObject);
-        expect(listener).toHaveBeenCalledWith(property);
+        expect(listener).not.toHaveBeenCalled();
     });
 
     it('constructor throws with undefined targetCollection', function() {
@@ -259,7 +276,9 @@ defineSuite([
     it('throws RuntimeError if property can not be resolved', function() {
         var collection = new EntityCollection();
 
-        var testObject = new Entity('testId');
+        var testObject = new Entity({
+            id : 'testId'
+        });
         collection.add(testObject);
 
         var property = ReferenceProperty.fromString(collection, 'testId#billboard');
@@ -271,7 +290,9 @@ defineSuite([
     it('throws RuntimeError if sub-property can not be resolved', function() {
         var collection = new EntityCollection();
 
-        var testObject = new Entity('testId');
+        var testObject = new Entity({
+            id : 'testId'
+        });
         testObject.billboard = new BillboardGraphics();
         collection.add(testObject);
 

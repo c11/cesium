@@ -108,14 +108,56 @@ define([
      * @param {Number} [green=255] The green component.
      * @param {Number} [blue=255] The blue component.
      * @param {Number} [alpha=255] The alpha component.
-     * @returns {Color} A new color instance.
+     * @param {Color} [result] The object onto which to store the result.
+     * @returns {Color} The modified result parameter or a new Color instance if one was not provided.
      */
-    Color.fromBytes = function(red, green, blue, alpha) {
+    Color.fromBytes = function(red, green, blue, alpha, result) {
         red = Color.byteToFloat(defaultValue(red, 255.0));
         green = Color.byteToFloat(defaultValue(green, 255.0));
         blue = Color.byteToFloat(defaultValue(blue, 255.0));
         alpha = Color.byteToFloat(defaultValue(alpha, 255.0));
-        return new Color(red, green, blue, alpha);
+
+        if (!defined(result)) {
+            return new Color(red, green, blue, alpha);
+        }
+
+        result.red = red;
+        result.green = green;
+        result.blue = blue;
+        result.alpha = alpha;
+        return result;
+    };
+
+    /**
+     * Creates a new Color that has the same red, green, and blue components
+     * of the specified color, but with the specified alpha value.
+     *
+     * @param {Color} color The base color
+     * @param {Number} alpha The new alpha component.
+     * @param {Color} [result] The object onto which to store the result.
+     * @returns {Color} The modified result parameter or a new Color instance if one was not provided.
+     *
+     * @example var translucentRed = Cesium.Color.fromColor(Cesium.Color.RED, 0.9);
+     */
+    Color.fromAlpha = function(color, alpha, result) {
+        //>>includeStart('debug', pragmas.debug);
+        if (!defined(color)) {
+            throw new DeveloperError('color is required');
+        }
+        if (!defined(alpha)) {
+            throw new DeveloperError('alpha is required');
+        }
+        //>>includeEnd('debug');
+
+        if (!defined(result)) {
+            return new Color(color.red, color.green, color.blue, alpha);
+        }
+
+        result.red = color.red;
+        result.green = color.green;
+        result.blue = color.blue;
+        result.alpha = alpha;
+        return result;
     };
 
     var scratchArrayBuffer;
@@ -479,6 +521,16 @@ define([
     };
 
     /**
+     * @private
+     */
+    Color.equalsArray = function(color, array, offset) {
+        return color.red === array[offset] &&
+               color.green === array[offset + 1] &&
+               color.blue === array[offset + 2] &&
+               color.alpha === array[offset + 3];
+    };
+
+    /**
      * Returns a duplicate of a Color instance.
      *
      * @param {Color} [result] The object to store the result in, if undefined a new instance will be created.
@@ -581,6 +633,82 @@ define([
         scratchUint8Array[2] = Color.floatToByte(this.blue);
         scratchUint8Array[3] = Color.floatToByte(this.alpha);
         return scratchUint32Array[0];
+    };
+
+    /**
+     * Brightens this color by the provided magnitude.
+     *
+     * @param {Number} magnitude A positive number indicating the amount to brighten.
+     * @param {Color} result The object onto which to store the result.
+     * @returns {Color} The modified result parameter.
+     *
+     * @example
+     * var brightBlue = Cesium.Color.BLUE.brighten(0.5, new Color());
+     */
+    Color.prototype.brighten = function(magnitude, result) {
+        //>>includeStart('debug', pragmas.debug);
+        if (!defined(magnitude)) {
+            throw new DeveloperError('magnitude is required.');
+        }
+        if (magnitude < 0.0) {
+            throw new DeveloperError('magnitude must be positive.');
+        }
+        if (!defined(result)) {
+            throw new DeveloperError('result is required.');
+        }
+        //>>includeEnd('debug');
+
+        magnitude = (1.0 - magnitude);
+        result.red = 1.0 - ((1.0 - this.red) * magnitude);
+        result.green = 1.0 - ((1.0 - this.green) * magnitude);
+        result.blue = 1.0 - ((1.0 - this.blue) * magnitude);
+        result.alpha = this.alpha;
+        return result;
+    };
+
+    /**
+     * Darkens this color by the provided magnitude.
+     *
+     * @param {Number} magnitude A positive number indicating the amount to darken.
+     * @param {Color} result The object onto which to store the result.
+     * @returns {Color} The modified result parameter.
+     *
+     * @example
+     * var darkBlue = Cesium.Color.BLUE.darken(0.5, new Color());
+     */
+    Color.prototype.darken = function(magnitude, result) {
+        //>>includeStart('debug', pragmas.debug);
+        if (!defined(magnitude)) {
+            throw new DeveloperError('magnitude is required.');
+        }
+        if (magnitude < 0.0) {
+            throw new DeveloperError('magnitude must be positive.');
+        }
+        if (!defined(result)) {
+            throw new DeveloperError('result is required.');
+        }
+        //>>includeEnd('debug');
+
+        magnitude = (1.0 - magnitude);
+        result.red = this.red * magnitude;
+        result.green = this.green * magnitude;
+        result.blue = this.blue * magnitude;
+        result.alpha = this.alpha;
+        return result;
+    };
+
+    /**
+     * Creates a new Color that has the same red, green, and blue components
+     * as this Color, but with the specified alpha value.
+     *
+     * @param {Number} alpha The new alpha component.
+     * @param {Color} [result] The object onto which to store the result.
+     * @returns {Color} The modified result parameter or a new Color instance if one was not provided.
+     *
+     * @example var translucentRed = Cesium.Color.RED.withAlpha(0.9);
+     */
+    Color.prototype.withAlpha = function(alpha, result) {
+        return Color.fromAlpha(this, alpha, result);
     };
 
     /**
@@ -1895,6 +2023,15 @@ define([
      * @type {Color}
      */
     Color.YELLOWGREEN = freezeObject(Color.fromCssColorString('#9ACD32'));
+
+    /**
+     * An immutable Color instance initialized to CSS transparent.
+     * <span class="colorSwath" style="background: transparent;"></span>
+     *
+     * @constant
+     * @type {Color}
+     */
+    Color.TRANSPARENT = freezeObject(new Color(0, 0, 0, 0));
 
     return Color;
 });

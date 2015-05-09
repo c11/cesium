@@ -16,7 +16,57 @@ defineSuite([
         testDefinitionChanged,
         testMaterialDefinitionChanged) {
     "use strict";
-    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn,runs,waits,waitsFor*/
+    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn*/
+
+    it('creates expected instance from raw assignment and construction', function() {
+        var options = {
+            material : Color.BLUE,
+            show : true,
+            coordinates : new Rectangle(0.1, 0.2, 0.3, 0.4),
+            height : 5,
+            extrudedHeight : 6,
+            granularity : 7,
+            rotation : 8,
+            stRotation : 9,
+            fill : false,
+            outline : false,
+            outlineColor : Color.RED,
+            outlineWidth : 10,
+            closeTop : false,
+            closeBottom : false
+        };
+
+        var ellipse = new RectangleGraphics(options);
+        expect(ellipse.material).toBeInstanceOf(ColorMaterialProperty);
+        expect(ellipse.show).toBeInstanceOf(ConstantProperty);
+        expect(ellipse.coordinates).toBeInstanceOf(ConstantProperty);
+        expect(ellipse.height).toBeInstanceOf(ConstantProperty);
+        expect(ellipse.extrudedHeight).toBeInstanceOf(ConstantProperty);
+        expect(ellipse.granularity).toBeInstanceOf(ConstantProperty);
+        expect(ellipse.rotation).toBeInstanceOf(ConstantProperty);
+        expect(ellipse.stRotation).toBeInstanceOf(ConstantProperty);
+        expect(ellipse.fill).toBeInstanceOf(ConstantProperty);
+        expect(ellipse.outline).toBeInstanceOf(ConstantProperty);
+        expect(ellipse.outlineColor).toBeInstanceOf(ConstantProperty);
+        expect(ellipse.outlineWidth).toBeInstanceOf(ConstantProperty);
+        expect(ellipse.closeTop).toBeInstanceOf(ConstantProperty);
+        expect(ellipse.closeBottom).toBeInstanceOf(ConstantProperty);
+
+        expect(ellipse.material.color.getValue()).toEqual(options.material);
+        expect(ellipse.show.getValue()).toEqual(options.show);
+        expect(ellipse.coordinates.getValue()).toEqual(options.coordinates);
+        expect(ellipse.height.getValue()).toEqual(options.height);
+        expect(ellipse.extrudedHeight.getValue()).toEqual(options.extrudedHeight);
+        expect(ellipse.granularity.getValue()).toEqual(options.granularity);
+        expect(ellipse.rotation.getValue()).toEqual(options.rotation);
+        expect(ellipse.stRotation.getValue()).toEqual(options.stRotation);
+        expect(ellipse.fill.getValue()).toEqual(options.fill);
+        expect(ellipse.outline.getValue()).toEqual(options.outline);
+        expect(ellipse.outlineColor.getValue()).toEqual(options.outlineColor);
+        expect(ellipse.outlineWidth.getValue()).toEqual(options.outlineWidth);
+        expect(ellipse.closeTop.getValue()).toEqual(options.closeTop);
+        expect(ellipse.closeBottom.getValue()).toEqual(options.closeBottom);
+    });
 
     it('merge assigns unassigned properties', function() {
         var source = new RectangleGraphics();
@@ -31,6 +81,7 @@ defineSuite([
         source.fill = new ConstantProperty();
         source.outline = new ConstantProperty();
         source.outlineColor = new ConstantProperty();
+        source.outlineWidth = new ConstantProperty();
         source.closeTop = new ConstantProperty();
         source.closeBottom = new ConstantProperty();
 
@@ -48,6 +99,7 @@ defineSuite([
         expect(target.fill).toBe(source.fill);
         expect(target.outline).toBe(source.outline);
         expect(target.outlineColor).toBe(source.outlineColor);
+        expect(target.outlineWidth).toBe(source.outlineWidth);
         expect(target.closeTop).toBe(source.closeTop);
         expect(target.closeBottom).toBe(source.closeBottom);
     });
@@ -66,6 +118,7 @@ defineSuite([
         var fill = new ConstantProperty();
         var outline = new ConstantProperty();
         var outlineColor = new ConstantProperty();
+        var outlineWidth = new ConstantProperty();
         var closeTop = new ConstantProperty();
         var closeBottom = new ConstantProperty();
 
@@ -81,6 +134,7 @@ defineSuite([
         target.fill = fill;
         target.outline = outline;
         target.outlineColor = outlineColor;
+        target.outlineWidth = outlineWidth;
         target.closeTop = closeTop;
         target.closeBottom = closeBottom;
 
@@ -97,6 +151,7 @@ defineSuite([
         expect(target.fill).toBe(fill);
         expect(target.outline).toBe(outline);
         expect(target.outlineColor).toBe(outlineColor);
+        expect(target.outlineWidth).toBe(outlineWidth);
         expect(target.closeTop).toBe(closeTop);
         expect(target.closeBottom).toBe(closeBottom);
     });
@@ -114,6 +169,7 @@ defineSuite([
         source.fill = new ConstantProperty();
         source.outline = new ConstantProperty();
         source.outlineColor = new ConstantProperty();
+        source.outlineWidth = new ConstantProperty();
         source.closeTop = new ConstantProperty();
         source.closeBottom = new ConstantProperty();
 
@@ -129,6 +185,7 @@ defineSuite([
         expect(result.fill).toBe(source.fill);
         expect(result.outline).toBe(source.outline);
         expect(result.outlineColor).toBe(source.outlineColor);
+        expect(result.outlineWidth).toBe(source.outlineWidth);
         expect(result.closeTop).toBe(source.closeTop);
         expect(result.closeBottom).toBe(source.closeBottom);
     });
@@ -153,6 +210,7 @@ defineSuite([
         testDefinitionChanged(property, 'fill', false, true);
         testDefinitionChanged(property, 'outline', true, false);
         testDefinitionChanged(property, 'outlineColor', Color.RED, Color.BLUE);
+        testDefinitionChanged(property, 'outlineWidth', 2, 3);
         testDefinitionChanged(property, 'closeTop', false, true);
         testDefinitionChanged(property, 'closeBottom', false, true);
     });

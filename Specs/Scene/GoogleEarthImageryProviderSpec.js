@@ -12,7 +12,7 @@ defineSuite([
         'Scene/ImageryLayer',
         'Scene/ImageryProvider',
         'Scene/ImageryState',
-        'ThirdParty/when'
+        'Specs/pollToPromise'
     ], function(
         GoogleEarthImageryProvider,
         DefaultProxy,
@@ -26,9 +26,9 @@ defineSuite([
         ImageryLayer,
         ImageryProvider,
         ImageryState,
-        when) {
+        pollToPromise) {
     "use strict";
-    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn,runs,waits,waitsFor*/
+    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn*/
 
     afterEach(function() {
         loadImage.createImage = loadImage.defaultCreateImage;
@@ -42,7 +42,7 @@ defineSuite([
     it('constructor throws when url is not specified', function() {
         function constructWithoutServer() {
             return new GoogleEarthImageryProvider({
-                channel: 1234
+                channel : 1234
             });
         }
         expect(constructWithoutServer).toThrowDeveloperError();
@@ -51,7 +51,7 @@ defineSuite([
     it('constructor throws when channel is not specified', function() {
         function constructWithoutChannel() {
             return new GoogleEarthImageryProvider({
-                url: 'http://invalid.localhost'
+                url : 'http://invalid.localhost'
             });
         }
         expect(constructWithoutChannel).toThrowDeveloperError();
@@ -64,20 +64,18 @@ defineSuite([
         var version = 1;
 
         loadWithXhr.load = function(url, responseType, method, data, headers, deferred, overrideMimeType) {
-            return loadWithXhr.defaultLoad('Data/GoogleEarthImageryProvider/good.json', responseType, method, data, headers, deferred);
+            loadWithXhr.defaultLoad('Data/GoogleEarthImageryProvider/good.json', responseType, method, data, headers, deferred);
         };
 
         var provider = new GoogleEarthImageryProvider({
             url : url,
-            channel: channel,
-            path: path
+            channel : channel,
+            path : path
         });
 
-        waitsFor(function() {
+        return pollToPromise(function() {
             return provider.ready;
-        }, 'imagery provider to become ready');
-
-        runs(function() {
+        }).then(function() {
             expect(typeof provider.hasAlphaChannel).toBe('boolean');
         });
     });
@@ -89,26 +87,22 @@ defineSuite([
         var version = 1;
 
         loadWithXhr.load = function(url, responseType, method, data, headers, deferred, overrideMimeType) {
-            return loadWithXhr.defaultLoad('Data/GoogleEarthImageryProvider/good.json', responseType, method, data, headers, deferred);
+            loadWithXhr.defaultLoad('Data/GoogleEarthImageryProvider/good.json', responseType, method, data, headers, deferred);
         };
 
         var provider = new GoogleEarthImageryProvider({
             url : url,
-            channel: channel,
-            path: path
+            channel : channel,
+            path : path
         });
 
         expect(provider.url).toEqual(url);
         expect(provider.path).toEqual(path);
         expect(provider.channel).toEqual(channel);
 
-        waitsFor(function() {
+        return pollToPromise(function() {
             return provider.ready;
-        }, 'imagery provider to become ready');
-
-        var tile000Image;
-
-        runs(function() {
+        }).then(function() {
             expect(provider.tileWidth).toEqual(256);
             expect(provider.tileHeight).toEqual(256);
             expect(provider.maximumLevel).toEqual(23);
@@ -117,42 +111,30 @@ defineSuite([
             expect(provider.tilingScheme).toBeInstanceOf(WebMercatorTilingScheme);
             expect(provider.tileDiscardPolicy).toBeUndefined();
             expect(provider.rectangle).toEqual(new WebMercatorTilingScheme().rectangle);
-        });
-
-        waitsFor(function() {
-            return defined(provider.credit);
-        }, 'logo to become ready');
-
-        runs(function() {
             expect(provider.credit).toBeInstanceOf(Object);
 
             loadImage.createImage = function(url, crossOrigin, deferred) {
-                if(url.indexOf('blob:') !== 0) {
-                  expect(url).toEqual('http://example.invalid/query?request=ImageryMaps&channel=1234&version=1&x=0&y=0&z=1');
-                }
+                if (/^blob:/.test(url)) {
+                    // load blob url normally
+                    loadImage.defaultCreateImage(url, crossOrigin, deferred);
+                } else {
+                    expect(url).toEqual('http://example.invalid/query?request=ImageryMaps&channel=1234&version=1&x=0&y=0&z=1');
 
-                // Just return any old image.
-                return loadImage.defaultCreateImage('Data/Images/Red16x16.png', crossOrigin, deferred);
+                    // Just return any old image.
+                    loadImage.defaultCreateImage('Data/Images/Red16x16.png', crossOrigin, deferred);
+                }
             };
 
             loadWithXhr.load = function(url, responseType, method, data, headers, deferred, overrideMimeType) {
                 expect(url).toEqual('http://example.invalid/query?request=ImageryMaps&channel=1234&version=1&x=0&y=0&z=1');
 
                 // Just return any old image.
-                return loadWithXhr.defaultLoad('Data/Images/Red16x16.png', responseType, method, data, headers, deferred);
+                loadWithXhr.defaultLoad('Data/Images/Red16x16.png', responseType, method, data, headers, deferred);
             };
 
-            when(provider.requestImage(0, 0, 0), function(image) {
-                tile000Image = image;
+            return provider.requestImage(0, 0, 0).then(function(image) {
+                expect(image).toBeInstanceOf(Image);
             });
-        });
-
-        waitsFor(function() {
-            return defined(tile000Image);
-        }, 'requested tile to be loaded');
-
-        runs(function() {
-            expect(tile000Image).toBeInstanceOf(Image);
         });
     });
 
@@ -191,7 +173,7 @@ defineSuite([
 
         var provider = new GoogleEarthImageryProvider({
             url : url,
-            channel: channel
+            channel : channel
         });
 
         expect(provider.url).toEqual(url);
@@ -199,9 +181,9 @@ defineSuite([
         expect(provider.version).toEqual(version);
         expect(provider.channel).toEqual(channel);
 
-        waitsFor(function() {
+        return pollToPromise(function() {
             return provider.ready;
-        }, 'imagery provider to become ready');
+        });
     });
 
     it('routes requests through a proxy if one is specified', function() {
@@ -210,12 +192,12 @@ defineSuite([
         var proxy = new DefaultProxy('/proxy/');
 
         loadWithXhr.load = function(url, responseType, method, data, headers, deferred, overrideMimeType) {
-            return loadWithXhr.defaultLoad('Data/GoogleEarthImageryProvider/good.json', responseType, method, data, headers, deferred);
+            loadWithXhr.defaultLoad('Data/GoogleEarthImageryProvider/good.json', responseType, method, data, headers, deferred);
         };
 
         var provider = new GoogleEarthImageryProvider({
-            url: url,
-            channel: 1234,
+            url : url,
+            channel : 1234,
             proxy : proxy
         });
 
@@ -223,41 +205,39 @@ defineSuite([
         expect(provider.path).toEqual(path);
         expect(provider.proxy).toEqual(proxy);
 
-        waitsFor(function() {
+        return pollToPromise(function() {
             return provider.ready;
-        }, 'imagery provider to become ready');
-
-        var tile000Image;
-
-        runs(function() {
+        }).then(function() {
             loadImage.createImage = function(url, crossOrigin, deferred) {
-                if(url.indexOf('blob:') !== 0) {
-                  expect(url).toEqual(proxy.getURL('http://example.invalid/default_map/query?request=ImageryMaps&channel=1234&version=1&x=0&y=0&z=1'));
-                }
+                if (/^blob:/.test(url)) {
+                    // load blob url normally
+                    loadImage.defaultCreateImage(url, crossOrigin, deferred);
+                } else {
+                    expect(url).toEqual(proxy.getURL('http://example.invalid/default_map/query?request=ImageryMaps&channel=1234&version=1&x=0&y=0&z=1'));
 
-                // Just return any old image.
-                return loadImage.defaultCreateImage('Data/Images/Red16x16.png', crossOrigin, deferred);
+                    // Just return any old image.
+                    loadImage.defaultCreateImage('Data/Images/Red16x16.png', crossOrigin, deferred);
+                }
             };
 
-            when(provider.requestImage(0, 0, 0), function(image) {
-                tile000Image = image;
+            loadWithXhr.load = function(url, responseType, method, data, headers, deferred, overrideMimeType) {
+                expect(url).toEqual(proxy.getURL('http://example.invalid/default_map/query?request=ImageryMaps&channel=1234&version=1&x=0&y=0&z=1'));
+
+                // Just return any old image.
+                loadWithXhr.defaultLoad('Data/Images/Red16x16.png', responseType, method, data, headers, deferred);
+            };
+
+            return provider.requestImage(0, 0, 0).then(function(image) {
+                expect(image).toBeInstanceOf(Image);
             });
-        });
-
-        waitsFor(function() {
-            return defined(tile000Image);
-        }, 'requested tile to be loaded');
-
-        runs(function() {
-            expect(tile000Image).toBeInstanceOf(Image);
         });
     });
 
     it('raises error on invalid url', function() {
         var url = 'invalid.localhost';
         var provider = new GoogleEarthImageryProvider({
-            url: url,
-            channel: 1234
+            url : url,
+            channel : 1234
         });
 
         var errorEventRaised = false;
@@ -266,11 +246,9 @@ defineSuite([
             errorEventRaised = true;
         });
 
-        waitsFor(function() {
+        return pollToPromise(function() {
             return provider.ready || errorEventRaised;
-        }, 'imagery provider to become ready or raise error event');
-
-        runs(function() {
+        }).then(function() {
             expect(provider.ready).toEqual(false);
             expect(errorEventRaised).toEqual(true);
         });
@@ -278,12 +256,12 @@ defineSuite([
 
     it('raises error event when image cannot be loaded', function() {
         loadWithXhr.load = function(url, responseType, method, data, headers, deferred, overrideMimeType) {
-            return loadWithXhr.defaultLoad('Data/GoogleEarthImageryProvider/good.json', responseType, method, data, headers, deferred);
+            loadWithXhr.defaultLoad('Data/GoogleEarthImageryProvider/good.json', responseType, method, data, headers, deferred);
         };
 
         var provider = new GoogleEarthImageryProvider({
-            url: 'example.invalid',
-            channel: 1234
+            url : 'example.invalid',
+            channel : 1234
         });
 
         var layer = new ImageryLayer(provider);
@@ -298,78 +276,74 @@ defineSuite([
         });
 
         loadImage.createImage = function(url, crossOrigin, deferred) {
-            // Succeed after 2 tries
-            if (url.indexOf('blob:') !== 0 && tries === 2) {
-                // valid URL
-                return loadImage.defaultCreateImage('Data/Images/Red16x16.png', crossOrigin, deferred);
+            if (/^blob:/.test(url)) {
+                // load blob url normally
+                loadImage.defaultCreateImage(url, crossOrigin, deferred);
+            } else if (tries === 2) {
+                // Succeed after 2 tries
+                loadImage.defaultCreateImage('Data/Images/Red16x16.png', crossOrigin, deferred);
+            } else {
+                // fail
+                setTimeout(function() {
+                    deferred.reject();
+                }, 1);
             }
-
-            // invalid URL
-            return loadImage.defaultCreateImage(url, crossOrigin, deferred);
         };
 
         loadWithXhr.load = function(url, responseType, method, data, headers, deferred, overrideMimeType) {
-            // Succeed after 2 tries
             if (tries === 2) {
-                // valid URL
-                return loadWithXhr.defaultLoad('Data/Images/Red16x16.png', responseType, method, data, headers, deferred);
+                // Succeed after 2 tries
+                loadWithXhr.defaultLoad('Data/Images/Red16x16.png', responseType, method, data, headers, deferred);
+            } else {
+                // fail
+                setTimeout(function() {
+                    deferred.reject();
+                }, 1);
             }
-
-            // invalid URL
-            return loadWithXhr.defaultLoad(url, responseType, method, data, headers, deferred, overrideMimeType);
         };
 
-        waitsFor(function() {
+        return pollToPromise(function() {
             return provider.ready;
-        }, 'imagery provider to become ready');
-
-        var imagery;
-        runs(function() {
-            imagery = new Imagery(layer, 0, 0, 0);
+        }).then(function() {
+            var imagery = new Imagery(layer, 0, 0, 0);
             imagery.addReference();
             layer._requestImagery(imagery);
-        });
 
-        waitsFor(function() {
-            return imagery.state === ImageryState.RECEIVED;
-        }, 'image to load');
-
-        runs(function() {
-            expect(imagery.image).toBeInstanceOf(Image);
-            expect(tries).toEqual(2);
-            imagery.releaseReference();
+            return pollToPromise(function() {
+                return imagery.state === ImageryState.RECEIVED;
+            }).then(function() {
+                expect(imagery.image).toBeInstanceOf(Image);
+                expect(tries).toEqual(2);
+                imagery.releaseReference();
+            });
         });
     });
 
     it('defaults to WebMercatorTilingScheme when no projection specified', function() {
         loadWithXhr.load = function(url, responseType, method, data, headers, deferred, overrideMimeType) {
             return deferred.resolve(JSON.stringify({
-                "isAuthenticated": true,
-                "layers": [
-                    {
-                        "icon": "icons/773_l.png",
-                        "id": 1234,
-                        "initialState": true,
-                        "label": "Imagery",
-                        "requestType": "ImageryMaps",
-                        "version": 1
-                    }
-                ],
-                "serverUrl": "https://example.invalid",
-                "useGoogleLayers": false
+                "isAuthenticated" : true,
+                "layers" : [{
+                    "icon" : "icons/773_l.png",
+                    "id" : 1234,
+                    "initialState" : true,
+                    "label" : "Imagery",
+                    "requestType" : "ImageryMaps",
+                    "version" : 1
+                }],
+                "serverUrl" : "https://example.invalid",
+                "useGoogleLayers" : false
             }));
         };
 
         var provider = new GoogleEarthImageryProvider({
-            url: 'http://example.invalid',
-            channel: 1234
+            url : 'http://example.invalid',
+            channel : 1234
         });
 
-        waitsFor(function() {
+        return pollToPromise(function() {
             return provider.ready;
-        }, 'imagery provider to become ready');
-
-        runs(function() {
+        }).then(function() {
             expect(provider.tilingScheme).toBeInstanceOf(WebMercatorTilingScheme);
             expect(provider.rectangle).toEqual(new WebMercatorTilingScheme().rectangle);
         });
@@ -378,33 +352,29 @@ defineSuite([
     it('Projection is WebMercatorTilingScheme when server projection is mercator', function() {
         loadWithXhr.load = function(url, responseType, method, data, headers, deferred, overrideMimeType) {
             return deferred.resolve(JSON.stringify({
-                "isAuthenticated": true,
-                "layers": [
-                    {
-                        "icon": "icons/773_l.png",
-                        "id": 1234,
-                        "initialState": true,
-                        "label": "Imagery",
-                        "requestType": "ImageryMaps",
-                        "version": 1
-                    }
-                ],
-                "projection": "mercator",
-                "serverUrl": "https://example.invalid",
-                "useGoogleLayers": false
+                "isAuthenticated" : true,
+                "layers" : [{
+                    "icon" : "icons/773_l.png",
+                    "id" : 1234,
+                    "initialState" : true,
+                    "label" : "Imagery",
+                    "requestType" : "ImageryMaps",
+                    "version" : 1
+                }],
+                "projection" : "mercator",
+                "serverUrl" : "https://example.invalid",
+                "useGoogleLayers" : false
             }));
         };
 
         var provider = new GoogleEarthImageryProvider({
-            url: 'http://example.invalid',
-            channel: 1234
+            url : 'http://example.invalid',
+            channel : 1234
         });
 
-        waitsFor(function() {
+        return pollToPromise(function() {
             return provider.ready;
-        }, 'imagery provider to become ready');
-
-        runs(function() {
+        }).then(function() {
             expect(provider.tilingScheme).toBeInstanceOf(WebMercatorTilingScheme);
             expect(provider.rectangle).toEqual(new WebMercatorTilingScheme().rectangle);
         });
@@ -413,33 +383,29 @@ defineSuite([
     it('Projection is GeographicTilingScheme when server projection is flat', function() {
         loadWithXhr.load = function(url, responseType, method, data, headers, deferred, overrideMimeType) {
             return deferred.resolve(JSON.stringify({
-                "isAuthenticated": true,
-                "layers": [
-                    {
-                        "icon": "icons/773_l.png",
-                        "id": 1234,
-                        "initialState": true,
-                        "label": "Imagery",
-                        "requestType": "ImageryMaps",
-                        "version": 1
-                    }
-                ],
-                "projection": "flat",
-                "serverUrl": "https://example.invalid",
-                "useGoogleLayers": false
+                "isAuthenticated" : true,
+                "layers" : [{
+                    "icon" : "icons/773_l.png",
+                    "id" : 1234,
+                    "initialState" : true,
+                    "label" : "Imagery",
+                    "requestType" : "ImageryMaps",
+                    "version" : 1
+                }],
+                "projection" : "flat",
+                "serverUrl" : "https://example.invalid",
+                "useGoogleLayers" : false
             }));
         };
 
         var provider = new GoogleEarthImageryProvider({
-            url: 'http://example.invalid',
-            channel: 1234
+            url : 'http://example.invalid',
+            channel : 1234
         });
 
-        waitsFor(function() {
+        return pollToPromise(function() {
             return provider.ready;
-        }, 'imagery provider to become ready');
-
-        runs(function() {
+        }).then(function() {
             expect(provider.tilingScheme).toBeInstanceOf(GeographicTilingScheme);
             expect(provider.rectangle).toEqual(new Rectangle(-Math.PI, -Math.PI, Math.PI, Math.PI));
         });
@@ -447,12 +413,12 @@ defineSuite([
 
     it('raises error when channel cannot be found', function() {
         loadWithXhr.load = function(url, responseType, method, data, headers, deferred, overrideMimeType) {
-            return loadWithXhr.defaultLoad('Data/GoogleEarthImageryProvider/bad_channel.json', responseType, method, data, headers, deferred);
+            loadWithXhr.defaultLoad('Data/GoogleEarthImageryProvider/bad_channel.json', responseType, method, data, headers, deferred);
         };
 
         var provider = new GoogleEarthImageryProvider({
-            url: 'http://invalid.localhost',
-            channel: 1235
+            url : 'http://invalid.localhost',
+            channel : 1235
         });
 
         var errorEventRaised = false;
@@ -461,11 +427,9 @@ defineSuite([
             errorEventRaised = true;
         });
 
-        waitsFor(function() {
+        return pollToPromise(function() {
             return provider.ready || errorEventRaised;
-        }, 'imagery provider to become ready or raise error event');
-
-        runs(function() {
+        }).then(function() {
             expect(provider.ready).toEqual(false);
             expect(errorEventRaised).toEqual(true);
         });
@@ -473,12 +437,12 @@ defineSuite([
 
     it('raises error when channel version cannot be found', function() {
         loadWithXhr.load = function(url, responseType, method, data, headers, deferred, overrideMimeType) {
-            return loadWithXhr.defaultLoad('Data/GoogleEarthImageryProvider/bad_version.json', responseType, method, data, headers, deferred);
+            loadWithXhr.defaultLoad('Data/GoogleEarthImageryProvider/bad_version.json', responseType, method, data, headers, deferred);
         };
 
         var provider = new GoogleEarthImageryProvider({
-            url: 'http://invalid.localhost',
-            channel: 1234
+            url : 'http://invalid.localhost',
+            channel : 1234
         });
 
         var errorEventRaised = false;
@@ -487,11 +451,9 @@ defineSuite([
             errorEventRaised = true;
         });
 
-        waitsFor(function() {
+        return pollToPromise(function() {
             return provider.ready || errorEventRaised;
-        }, 'imagery provider to become ready or raise error event');
-
-        runs(function() {
+        }).then(function() {
             expect(provider.ready).toEqual(false);
             expect(errorEventRaised).toEqual(true);
         });
@@ -499,12 +461,12 @@ defineSuite([
 
     it('raises error when unsupported projection is specified', function() {
         loadWithXhr.load = function(url, responseType, method, data, headers, deferred, overrideMimeType) {
-            return loadWithXhr.defaultLoad('Data/GoogleEarthImageryProvider/bad_projection.json', responseType, method, data, headers, deferred);
+            loadWithXhr.defaultLoad('Data/GoogleEarthImageryProvider/bad_projection.json', responseType, method, data, headers, deferred);
         };
 
         var provider = new GoogleEarthImageryProvider({
-            url: 'http://invalid.localhost',
-            channel: 1234
+            url : 'http://invalid.localhost',
+            channel : 1234
         });
 
         var errorEventRaised = false;
@@ -513,11 +475,9 @@ defineSuite([
             errorEventRaised = true;
         });
 
-        waitsFor(function() {
+        return pollToPromise(function() {
             return provider.ready || errorEventRaised;
-        }, 'imagery provider to become ready or raise error event');
-
-        runs(function() {
+        }).then(function() {
             expect(provider.ready).toEqual(false);
             expect(errorEventRaised).toEqual(true);
         });

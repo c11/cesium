@@ -2,36 +2,23 @@
 defineSuite([
         'Core/CorridorGeometry',
         'Core/Cartesian3',
-        'Core/Cartographic',
         'Core/CornerType',
         'Core/Ellipsoid',
-        'Core/VertexFormat'
+        'Core/VertexFormat',
+        'Specs/createPackableSpecs'
     ], function(
         CorridorGeometry,
         Cartesian3,
-        Cartographic,
         CornerType,
         Ellipsoid,
-        VertexFormat) {
+        VertexFormat,
+        createPackableSpecs) {
     "use strict";
-    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn,runs,waits,waitsFor*/
+    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn*/
 
     it('throws without positions', function() {
         expect(function() {
             return new CorridorGeometry({});
-        }).toThrowDeveloperError();
-    });
-
-    it('throws without 2 unique positions', function() {
-        expect(function() {
-            var ellipsoid = Ellipsoid.WGS84;
-            return CorridorGeometry.createGeometry(new CorridorGeometry({
-                positions : ellipsoid.cartographicArrayToCartesianArray([
-                    Cartographic.fromDegrees(90.0, -30.0),
-                    Cartographic.fromDegrees(90.0, -30.0)
-                ]),
-                width: 10000
-            }));
         }).toThrowDeveloperError();
     });
 
@@ -43,13 +30,23 @@ defineSuite([
         }).toThrowDeveloperError();
     });
 
+    it('createGeometry returns undefined without 2 unique positions', function() {
+        var geometry = CorridorGeometry.createGeometry(new CorridorGeometry({
+            positions : Cartesian3.fromDegreesArray([
+                90.0, -30.0,
+                90.0, -30.0
+            ]),
+            width: 10000
+        }));
+        expect(geometry).not.toBeDefined();
+    });
+
     it('computes positions', function() {
-        var ellipsoid = Ellipsoid.WGS84;
         var m = CorridorGeometry.createGeometry(new CorridorGeometry({
             vertexFormat : VertexFormat.POSITION_ONLY,
-            positions : ellipsoid.cartographicArrayToCartesianArray([
-                Cartographic.fromDegrees(90.0, -30.0),
-                Cartographic.fromDegrees(90.0, -35.0)
+            positions : Cartesian3.fromDegreesArray([
+                90.0, -30.0,
+                90.0, -35.0
             ]),
             cornerType: CornerType.MITERED,
             width : 30000
@@ -60,12 +57,11 @@ defineSuite([
     });
 
     it('compute all vertex attributes', function() {
-        var ellipsoid = Ellipsoid.WGS84;
         var m = CorridorGeometry.createGeometry(new CorridorGeometry({
             vertexFormat : VertexFormat.ALL,
-            positions : ellipsoid.cartographicArrayToCartesianArray([
-                 Cartographic.fromDegrees(90.0, -30.0),
-                 Cartographic.fromDegrees(90.0, -35.0)
+            positions : Cartesian3.fromDegreesArray([
+                 90.0, -30.0,
+                 90.0, -35.0
             ]),
             cornerType: CornerType.MITERED,
             width : 30000
@@ -80,12 +76,11 @@ defineSuite([
     });
 
     it('computes positions extruded', function() {
-        var ellipsoid = Ellipsoid.WGS84;
         var m = CorridorGeometry.createGeometry(new CorridorGeometry({
             vertexFormat : VertexFormat.POSITION_ONLY,
-            positions : ellipsoid.cartographicArrayToCartesianArray([
-                 Cartographic.fromDegrees(90.0, -30.0),
-                 Cartographic.fromDegrees(90.0, -35.0)
+            positions : Cartesian3.fromDegreesArray([
+                 90.0, -30.0,
+                 90.0, -35.0
             ]),
             cornerType: CornerType.MITERED,
             width : 30000,
@@ -97,12 +92,11 @@ defineSuite([
     });
 
     it('compute all vertex attributes extruded', function() {
-        var ellipsoid = Ellipsoid.WGS84;
         var m = CorridorGeometry.createGeometry(new CorridorGeometry({
             vertexFormat : VertexFormat.ALL,
-            positions : ellipsoid.cartographicArrayToCartesianArray([
-                 Cartographic.fromDegrees(90.0, -30.0),
-                 Cartographic.fromDegrees(90.0, -35.0)
+            positions : Cartesian3.fromDegreesArray([
+                 90.0, -30.0,
+                 90.0, -35.0
             ]),
             cornerType: CornerType.MITERED,
             width : 30000,
@@ -118,13 +112,12 @@ defineSuite([
     });
 
     it('computes right turn', function() {
-        var ellipsoid = Ellipsoid.WGS84;
         var m = CorridorGeometry.createGeometry(new CorridorGeometry({
             vertexFormat : VertexFormat.POSITION_ONLY,
-            positions : ellipsoid.cartographicArrayToCartesianArray([
-                Cartographic.fromDegrees(90.0, -30.0),
-                Cartographic.fromDegrees(90.0, -31.0),
-                Cartographic.fromDegrees(91.0, -31.0)
+            positions : Cartesian3.fromDegreesArray([
+                90.0, -30.0,
+                90.0, -31.0,
+                91.0, -31.0
             ]),
             cornerType: CornerType.MITERED,
             width : 30000
@@ -135,13 +128,12 @@ defineSuite([
     });
 
     it('computes left turn', function() {
-        var ellipsoid = Ellipsoid.WGS84;
         var m = CorridorGeometry.createGeometry(new CorridorGeometry({
             vertexFormat : VertexFormat.POSITION_ONLY,
-            positions : ellipsoid.cartographicArrayToCartesianArray([
-                Cartographic.fromDegrees(90.0, -30.0),
-                Cartographic.fromDegrees(90.0, -31.0),
-                Cartographic.fromDegrees(89.0, -31.0)
+            positions : Cartesian3.fromDegreesArray([
+                90.0, -30.0,
+                90.0, -31.0,
+                89.0, -31.0
             ]),
             cornerType: CornerType.MITERED,
             width : 30000
@@ -152,14 +144,13 @@ defineSuite([
     });
 
     it('computes with rounded corners', function() {
-        var ellipsoid = Ellipsoid.WGS84;
         var m = CorridorGeometry.createGeometry(new CorridorGeometry({
             vertexFormat : VertexFormat.POSITION_AND_ST,
-            positions : ellipsoid.cartographicArrayToCartesianArray([
-                Cartographic.fromDegrees(90.0, -30.0),
-                Cartographic.fromDegrees(90.0, -31.0),
-                Cartographic.fromDegrees(89.0, -31.0),
-                Cartographic.fromDegrees(89.0, -32.0)
+            positions : Cartesian3.fromDegreesArray([
+                90.0, -30.0,
+                90.0, -31.0,
+                89.0, -31.0,
+                89.0, -32.0
             ]),
             cornerType: CornerType.ROUNDED,
             width : 30000
@@ -173,14 +164,13 @@ defineSuite([
     });
 
     it('computes with beveled corners', function() {
-        var ellipsoid = Ellipsoid.WGS84;
         var m = CorridorGeometry.createGeometry(new CorridorGeometry({
             vertexFormat : VertexFormat.POSITION_ONLY,
-            positions : ellipsoid.cartographicArrayToCartesianArray([
-                 Cartographic.fromDegrees(90.0, -30.0),
-                 Cartographic.fromDegrees(90.0, -31.0),
-                 Cartographic.fromDegrees(89.0, -31.0),
-                 Cartographic.fromDegrees(89.0, -32.0)
+            positions : Cartesian3.fromDegreesArray([
+                 90.0, -30.0,
+                 90.0, -31.0,
+                 89.0, -31.0,
+                 89.0, -32.0
             ]),
             cornerType: CornerType.BEVELED,
             width : 30000
@@ -189,4 +179,55 @@ defineSuite([
         expect(m.attributes.position.values.length).toEqual(3 * 10);
         expect(m.indices.length).toEqual(3 * 8);
     });
+
+    it('computes sharp turns', function() {
+        var m = CorridorGeometry.createGeometry(new CorridorGeometry({
+            vertexFormat : VertexFormat.POSITION_ONLY,
+            positions : Cartesian3.fromDegreesArray([
+                 2.00571672577652,52.7781459942399,
+                 1.99188457974115,52.7764958852886,
+                 2.01325961458495,52.7674170680511,
+                 1.98708058340534,52.7733979856253,
+                 2.00634853946644,52.7650460748473
+            ]),
+            cornerType: CornerType.BEVELED,
+            width : 100
+        }));
+
+        expect(m.attributes.position.values.length).toEqual(3 * 13);
+        expect(m.indices.length).toEqual(3 * 11);
+    });
+
+    it('computes straight corridors', function() {
+        var m = CorridorGeometry.createGeometry(new CorridorGeometry({
+            vertexFormat : VertexFormat.POSITION_ONLY,
+            positions : Cartesian3.fromDegreesArray([
+                -67.655, 0.0,
+                -67.655, 15.0,
+                -67.655, 20.0
+            ]),
+            cornerType: CornerType.BEVELED,
+            width : 400000,
+            granularity : Math.PI / 6.0
+        }));
+
+        expect(m.attributes.position.values.length).toEqual(3 * 4);
+        expect(m.indices.length).toEqual(3 * 2);
+    });
+
+    var positions = Cartesian3.fromDegreesArray([
+         90.0, -30.0,
+         90.0, -31.0
+    ]);
+    var corridor = new CorridorGeometry({
+        vertexFormat : VertexFormat.POSITION_ONLY,
+        positions : positions,
+        cornerType: CornerType.BEVELED,
+        width : 30000.0,
+        granularity : 0.1
+    });
+    var packedInstance = [2, positions[0].x, positions[0].y, positions[0].z, positions[1].x, positions[1].y, positions[1].z];
+    packedInstance.push(Ellipsoid.WGS84.radii.x, Ellipsoid.WGS84.radii.y, Ellipsoid.WGS84.radii.z);
+    packedInstance.push(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 30000.0, 0.0, 0.0, 2.0, 0.1);
+    createPackableSpecs(CorridorGeometry, corridor, packedInstance);
 });

@@ -11,7 +11,6 @@ defineSuite([
         'Scene/Primitive',
         'Specs/createContext',
         'Specs/createFrameState',
-        'Specs/destroyContext',
         'Specs/render'
     ], function(
         EllipsoidSurfaceAppearance,
@@ -25,10 +24,9 @@ defineSuite([
         Primitive,
         createContext,
         createFrameState,
-        destroyContext,
         render) {
     "use strict";
-    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn,runs,waits,waitsFor*/
+    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn*/
 
     var context;
     var frameState;
@@ -42,7 +40,8 @@ defineSuite([
         primitive = new Primitive({
             geometryInstances : new GeometryInstance({
                 geometry : new RectangleGeometry({
-                    rectangle : rectangle
+                    rectangle : rectangle,
+                    vertexFormat : EllipsoidSurfaceAppearance.VERTEX_FORMAT
                 }),
                 attributes : {
                     color : new ColorGeometryInstanceAttribute(1.0, 1.0, 0.0, 1.0)
@@ -58,7 +57,7 @@ defineSuite([
 
     afterAll(function() {
         primitive = primitive && primitive.destroy();
-        destroyContext(context);
+        context.destroyForSpecs();
     });
 
     it('constructor', function() {

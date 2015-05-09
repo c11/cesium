@@ -14,7 +14,47 @@ defineSuite([
         testDefinitionChanged,
         testMaterialDefinitionChanged) {
     "use strict";
-    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn,runs,waits,waitsFor*/
+    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn*/
+
+    it('creates expected instance from raw assignment and construction', function() {
+        var options = {
+            material : Color.BLUE,
+            positions : [],
+            show : true,
+            granularity : 1,
+            fill : false,
+            outline : false,
+            outlineColor : Color.RED,
+            outlineWidth : 2,
+            minimumHeights : [3, 4, 5],
+            maximumHeights : [6, 7, 8]
+        };
+
+        var wall = new WallGraphics(options);
+        expect(wall.material).toBeInstanceOf(ColorMaterialProperty);
+        expect(wall.positions).toBeInstanceOf(ConstantProperty);
+        expect(wall.show).toBeInstanceOf(ConstantProperty);
+        expect(wall.granularity).toBeInstanceOf(ConstantProperty);
+        expect(wall.granularity).toBeInstanceOf(ConstantProperty);
+        expect(wall.fill).toBeInstanceOf(ConstantProperty);
+        expect(wall.outline).toBeInstanceOf(ConstantProperty);
+        expect(wall.outlineColor).toBeInstanceOf(ConstantProperty);
+        expect(wall.outlineWidth).toBeInstanceOf(ConstantProperty);
+        expect(wall.minimumHeights).toBeInstanceOf(ConstantProperty);
+        expect(wall.maximumHeights).toBeInstanceOf(ConstantProperty);
+
+        expect(wall.material.color.getValue()).toEqual(options.material);
+        expect(wall.positions.getValue()).toEqual(options.positions);
+        expect(wall.show.getValue()).toEqual(options.show);
+        expect(wall.granularity.getValue()).toEqual(options.granularity);
+        expect(wall.granularity.getValue()).toEqual(options.granularity);
+        expect(wall.fill.getValue()).toEqual(options.fill);
+        expect(wall.outline.getValue()).toEqual(options.outline);
+        expect(wall.outlineColor.getValue()).toEqual(options.outlineColor);
+        expect(wall.outlineWidth.getValue()).toEqual(options.outlineWidth);
+        expect(wall.minimumHeights.getValue()).toEqual(options.minimumHeights);
+        expect(wall.maximumHeights.getValue()).toEqual(options.maximumHeights);
+    });
 
     it('merge assigns unassigned properties', function() {
         var source = new WallGraphics();
@@ -25,6 +65,7 @@ defineSuite([
         source.fill = new ConstantProperty();
         source.outline = new ConstantProperty();
         source.outlineColor = new ConstantProperty();
+        source.outlineWidth = new ConstantProperty();
         source.minimumHeights = new ConstantProperty();
         source.maximumHeights = new ConstantProperty();
 
@@ -38,6 +79,7 @@ defineSuite([
         expect(target.fill).toBe(source.fill);
         expect(target.outline).toBe(source.outline);
         expect(target.outlineColor).toBe(source.outlineColor);
+        expect(target.outlineWidth).toBe(source.outlineWidth);
         expect(target.minimumHeights).toBe(source.minimumHeights);
         expect(target.maximumHeights).toBe(source.maximumHeights);
     });
@@ -52,6 +94,7 @@ defineSuite([
         var fill = new ConstantProperty();
         var outline = new ConstantProperty();
         var outlineColor = new ConstantProperty();
+        var outlineWidth = new ConstantProperty();
         var minimumHeights = new ConstantProperty();
         var maximumHeights = new ConstantProperty();
 
@@ -63,6 +106,7 @@ defineSuite([
         target.fill = fill;
         target.outline = outline;
         target.outlineColor = outlineColor;
+        target.outlineWidth = outlineWidth;
         target.minimumHeights = minimumHeights;
         target.maximumHeights = maximumHeights;
 
@@ -75,6 +119,7 @@ defineSuite([
         expect(target.fill).toBe(fill);
         expect(target.outline).toBe(outline);
         expect(target.outlineColor).toBe(outlineColor);
+        expect(target.outlineWidth).toBe(outlineWidth);
         expect(target.minimumHeights).toBe(minimumHeights);
         expect(target.maximumHeights).toBe(maximumHeights);
     });
@@ -88,6 +133,7 @@ defineSuite([
         source.fill = new ConstantProperty();
         source.outline = new ConstantProperty();
         source.outlineColor = new ConstantProperty();
+        source.outlineWidth = new ConstantProperty();
         source.minimumHeights = new ConstantProperty();
         source.maximumHeights = new ConstantProperty();
 
@@ -99,6 +145,7 @@ defineSuite([
         expect(result.fill).toBe(source.fill);
         expect(result.outline).toBe(source.outline);
         expect(result.outlineColor).toBe(source.outlineColor);
+        expect(result.outlineWidth).toBe(source.outlineWidth);
         expect(result.minimumHeights).toBe(source.minimumHeights);
         expect(result.maximumHeights).toBe(source.maximumHeights);
     });
@@ -119,6 +166,7 @@ defineSuite([
         testDefinitionChanged(property, 'fill', false, true);
         testDefinitionChanged(property, 'outline', true, false);
         testDefinitionChanged(property, 'outlineColor', Color.RED, Color.BLUE);
+        testDefinitionChanged(property, 'outlineWidth', 2, 3);
         testDefinitionChanged(property, 'minimumHeights', [0, 1], [2, 3]);
         testDefinitionChanged(property, 'maximumHeights', [3, 5], [7, 8]);
     });

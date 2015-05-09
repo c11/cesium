@@ -10,8 +10,7 @@ defineSuite([
         'Scene/Material',
         'Scene/QuadtreeTile',
         'Scene/RectanglePrimitive',
-        'Specs/createScene',
-        'Specs/destroyScene'
+        'Specs/createScene'
     ], function(
         CesiumInspectorViewModel,
         defined,
@@ -23,18 +22,20 @@ defineSuite([
         Material,
         QuadtreeTile,
         RectanglePrimitive,
-        createScene,
-        destroyScene) {
+        createScene) {
     "use strict";
-    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn,runs,waits,waitsFor*/
+    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn*/
 
     var scene;
+    var performanceContainer;
+
     beforeAll(function() {
         scene = createScene();
+        performanceContainer = document.createElement('div');
     });
 
     afterAll(function() {
-        destroyScene(scene);
+        scene.destroyForSpecs();
     });
 
     beforeEach(function() {
@@ -47,8 +48,9 @@ defineSuite([
     });
 
     it('constructor sets values', function() {
-        var viewModel = new CesiumInspectorViewModel(scene);
+        var viewModel = new CesiumInspectorViewModel(scene, performanceContainer);
         expect(viewModel.scene).toBe(scene);
+        expect(viewModel.performanceContainer).toBe(performanceContainer);
     });
 
     it('throws if scene is undefined', function() {
@@ -57,8 +59,14 @@ defineSuite([
         }).toThrowDeveloperError();
     });
 
+    it('throws if performanceContainer is undefined', function() {
+        expect(function() {
+            return new CesiumInspectorViewModel(scene);
+        }).toThrowDeveloperError();
+    });
+
     it('show frustums', function() {
-        var viewModel = new CesiumInspectorViewModel(scene);
+        var viewModel = new CesiumInspectorViewModel(scene, performanceContainer);
         viewModel.frustums = true;
         viewModel.showFrustums();
         expect(viewModel.scene.debugShowFrustums).toBe(true);
@@ -70,17 +78,16 @@ defineSuite([
     });
 
     it('show performance', function() {
-        var viewModel = new CesiumInspectorViewModel(scene);
+        var viewModel = new CesiumInspectorViewModel(scene, performanceContainer);
         viewModel.performance = true;
         viewModel.showPerformance();
         scene.render();
-        var elements = document.getElementsByClassName('cesium-cesiumInspector-performanceDisplay');
-        expect(elements[0].innerHTML).not.toEqual('');
+        expect(performanceContainer.innerHTML).not.toEqual('');
 
         viewModel.performance = false;
         viewModel.showPerformance();
         scene.render();
-        expect(elements[0].innerHTML).toEqual('');
+        expect(performanceContainer.innerHTML).toEqual('');
     });
 
     it ('primitive bounding sphere', function() {
@@ -94,7 +101,7 @@ defineSuite([
                 material : Material.fromType(Material.ColorType)
             })
         );
-        var viewModel = new CesiumInspectorViewModel(scene);
+        var viewModel = new CesiumInspectorViewModel(scene, performanceContainer);
         scene.render();
         viewModel.primitive = p;
         viewModel.primitiveBoundingSphere = true;
@@ -129,7 +136,7 @@ defineSuite([
             })
         );
 
-        var viewModel = new CesiumInspectorViewModel(scene);
+        var viewModel = new CesiumInspectorViewModel(scene, performanceContainer);
         scene.render();
         viewModel.primitive = p;
         viewModel.filterPrimitive = true;
@@ -154,7 +161,7 @@ defineSuite([
                 material : Material.fromType(Material.ColorType)
             })
         );
-        var viewModel = new CesiumInspectorViewModel(scene);
+        var viewModel = new CesiumInspectorViewModel(scene, performanceContainer);
         scene.render();
         viewModel.primitive = p;
         viewModel.primitiveReferenceFrame = true;
@@ -168,7 +175,7 @@ defineSuite([
     });
 
     it('show wireframe', function() {
-        var viewModel = new CesiumInspectorViewModel(scene);
+        var viewModel = new CesiumInspectorViewModel(scene, performanceContainer);
         viewModel.wireframe = true;
         viewModel.showWireframe();
         expect(viewModel.scene.globe._surface.tileProvider._debug.wireframe).toBe(true);
@@ -179,7 +186,7 @@ defineSuite([
     });
 
     it('suspend updates', function() {
-        var viewModel = new CesiumInspectorViewModel(scene);
+        var viewModel = new CesiumInspectorViewModel(scene, performanceContainer);
         viewModel.suspendUpdates = true;
         viewModel.doSuspendUpdates();
         expect(viewModel.scene.globe._surface._debug.suspendLodUpdate).toBe(true);
@@ -190,7 +197,7 @@ defineSuite([
     });
 
     it('show tile coords', function() {
-        var viewModel = new CesiumInspectorViewModel(scene);
+        var viewModel = new CesiumInspectorViewModel(scene, performanceContainer);
         expect(viewModel.scene.imageryLayers.length).toBe(0);
 
         viewModel.tileCoordinates  = true;
@@ -203,7 +210,7 @@ defineSuite([
     });
 
     it('show tile bounding sphere', function() {
-        var viewModel = new CesiumInspectorViewModel(scene);
+        var viewModel = new CesiumInspectorViewModel(scene, performanceContainer);
         var tile = new QuadtreeTile({tilingScheme : new WebMercatorTilingScheme(), x : 0, y : 0, level : 0});
         tile.data = new GlobeSurfaceTile();
         viewModel.tile = tile;
@@ -218,7 +225,7 @@ defineSuite([
     });
 
     it('filter tile', function() {
-        var viewModel = new CesiumInspectorViewModel(scene);
+        var viewModel = new CesiumInspectorViewModel(scene, performanceContainer);
         var tile = new QuadtreeTile({tilingScheme : new WebMercatorTilingScheme(), x : 0, y : 0, level : 0});
         tile.data = new GlobeSurfaceTile();
         viewModel.tile = tile;

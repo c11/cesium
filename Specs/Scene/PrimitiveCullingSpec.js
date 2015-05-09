@@ -3,9 +3,9 @@ defineSuite([
         'Core/BoundingSphere',
         'Core/Cartesian2',
         'Core/Cartesian3',
-        'Core/Cartographic',
         'Core/defaultValue',
         'Core/Ellipsoid',
+        'Core/loadImage',
         'Core/Math',
         'Core/Occluder',
         'Renderer/TextureMagnificationFilter',
@@ -24,15 +24,14 @@ defineSuite([
         'Specs/createCamera',
         'Specs/createContext',
         'Specs/createFrameState',
-        'Specs/destroyContext',
         'Specs/render'
     ], 'Scene/PrimitiveCulling', function(
         BoundingSphere,
         Cartesian2,
         Cartesian3,
-        Cartographic,
         defaultValue,
         Ellipsoid,
+        loadImage,
         CesiumMath,
         Occluder,
         TextureMagnificationFilter,
@@ -51,34 +50,34 @@ defineSuite([
         createCamera,
         createContext,
         createFrameState,
-        destroyContext,
         render) {
     "use strict";
-    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn,runs,waits,waitsFor*/
+    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn*/
 
     var context;
     var frameState;
     var primitives;
     var us;
     var camera;
+    var greenImage;
 
     beforeAll(function() {
         context = createContext();
         frameState = createFrameState();
+
+        return loadImage('./Data/Images/Green.png').then(function(image) {
+            greenImage = image;
+        });
     });
 
     afterAll(function() {
-        destroyContext(context);
+        context.destroyForSpecs();
     });
 
     beforeEach(function() {
         primitives = new PrimitiveCollection();
 
-        camera = createCamera({
-            eye : new Cartesian3(1.02, 0.0, 0.0),
-            target : Cartesian3.UNIT_Z,
-            up : new Cartesian3(-1.0, 0.0, 0.0)
-        });
+        camera = createCamera();
 
         us = context.uniformState;
         us.update(context, createFrameState(camera));
@@ -279,10 +278,12 @@ defineSuite([
         var polygon = new Polygon();
         polygon.ellipsoid = ellipsoid;
         polygon.granularity = CesiumMath.toRadians(20.0);
-        polygon.positions = [ellipsoid.cartographicToCartesian(Cartographic.fromDegrees(-degree, -degree, 0.0)),
-                              ellipsoid.cartographicToCartesian(Cartographic.fromDegrees( degree, -degree, 0.0)),
-                              ellipsoid.cartographicToCartesian(Cartographic.fromDegrees( degree,  degree, 0.0)),
-                              ellipsoid.cartographicToCartesian(Cartographic.fromDegrees(-degree,  degree, 0.0))];
+        polygon.positions = Cartesian3.fromDegreesArray([
+            -degree, -degree,
+            degree, -degree,
+            degree,  degree,
+            -degree,  degree
+        ]);
         polygon.asynchronous = false;
         polygon.material.translucent = false;
         return polygon;
@@ -342,24 +343,13 @@ defineSuite([
     it('label occlusion', function() {
         var labels = new LabelCollection();
         labels.add({
-            position : Ellipsoid.WGS84.cartographicToCartesian(new Cartographic.fromDegrees(-75.10, 39.57)),
+            position : Cartesian3.fromDegrees(-75.10, 39.57),
             text : 'x',
             horizontalOrigin : HorizontalOrigin.CENTER,
             verticalOrigin : VerticalOrigin.CENTER
         });
 
         testBillboardOcclusion(labels);
-    });
-
-    var greenImage;
-
-    it('initialize billboard image for culling tests', function() {
-        greenImage = new Image();
-        greenImage.src = './Data/Images/Green.png';
-
-        waitsFor(function() {
-            return greenImage.complete;
-        }, 'Load .png file(s) for billboard collection culling tests.', 3000);
     });
 
     function createBillboard() {
@@ -378,7 +368,7 @@ defineSuite([
         var billboards = new BillboardCollection();
         billboards.textureAtlas = atlas;
         billboards.add({
-            position : Ellipsoid.WGS84.cartographicToCartesian(new Cartographic.fromDegrees(-75.10, 39.57)),
+            position : Cartesian3.fromDegrees(-75.10, 39.57),
             image : greenImage
         });
 
@@ -411,9 +401,9 @@ defineSuite([
 
         var polylines = new PolylineCollection();
         polylines.add({
-            positions : Ellipsoid.WGS84.cartographicArrayToCartesianArray([
-                new Cartographic.fromDegrees(-75.10, 39.57),
-                new Cartographic.fromDegrees(-80.12, 25.46)
+            positions : Cartesian3.fromDegreesArray([
+                -75.10, 39.57,
+                -80.12, 25.46
             ]),
             material : material
         });

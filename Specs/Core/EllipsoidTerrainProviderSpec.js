@@ -1,14 +1,14 @@
 /*global defineSuite*/
 defineSuite([
         'Core/EllipsoidTerrainProvider',
-        'Specs/createContext',
-        'Specs/destroyContext'
+        'Core/TerrainProvider',
+        'Specs/createContext'
     ], function(
         EllipsoidTerrainProvider,
-        createContext,
-        destroyContext) {
+        TerrainProvider,
+        createContext) {
     "use strict";
-    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn,runs,waits,waitsFor*/
+    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn*/
 
     var context;
 
@@ -17,7 +17,11 @@ defineSuite([
     });
 
     afterAll(function() {
-        destroyContext(context);
+        context.destroyForSpecs();
+    });
+
+    it('conforms to TerrainProvider interface', function() {
+        expect(EllipsoidTerrainProvider).toConformToInterface(TerrainProvider);
     });
 
     it('requestTileGeometry creates terrain data.', function() {
@@ -30,5 +34,10 @@ defineSuite([
         var provider = new EllipsoidTerrainProvider();
         expect(provider.errorEvent).toBeDefined();
         expect(provider.errorEvent).toBe(provider.errorEvent);
+    });
+
+    it('returns undefined on getTileDataAvailable()', function() {
+        var provider = new EllipsoidTerrainProvider();
+        expect(provider.getTileDataAvailable()).toBeUndefined();
     });
 }, 'WebGL');

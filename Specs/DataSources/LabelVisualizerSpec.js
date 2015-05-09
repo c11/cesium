@@ -1,11 +1,13 @@
 /*global defineSuite*/
 defineSuite([
         'DataSources/LabelVisualizer',
+        'Core/BoundingSphere',
         'Core/Cartesian2',
         'Core/Cartesian3',
         'Core/Color',
         'Core/JulianDate',
         'Core/NearFarScalar',
+        'DataSources/BoundingSphereState',
         'DataSources/ConstantProperty',
         'DataSources/EntityCollection',
         'DataSources/LabelGraphics',
@@ -13,15 +15,16 @@ defineSuite([
         'Scene/LabelCollection',
         'Scene/LabelStyle',
         'Scene/VerticalOrigin',
-        'Specs/createScene',
-        'Specs/destroyScene'
+        'Specs/createScene'
     ], function(
         LabelVisualizer,
+        BoundingSphere,
         Cartesian2,
         Cartesian3,
         Color,
         JulianDate,
         NearFarScalar,
+        BoundingSphereState,
         ConstantProperty,
         EntityCollection,
         LabelGraphics,
@@ -29,10 +32,9 @@ defineSuite([
         LabelCollection,
         LabelStyle,
         VerticalOrigin,
-        createScene,
-        destroyScene) {
+        createScene) {
     "use strict";
-    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn,runs,waits,waitsFor*/
+    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn*/
 
     var scene;
     var visualizer;
@@ -42,7 +44,7 @@ defineSuite([
     });
 
     afterAll(function() {
-        destroyScene(scene);
+        scene.destroyForSpecs();
     });
 
     afterEach(function() {
@@ -53,13 +55,6 @@ defineSuite([
         expect(function() {
             return new LabelVisualizer();
         }).toThrowDeveloperError();
-    });
-
-    it('constructor adds collection to scene.', function() {
-        var entityCollection = new EntityCollection();
-        visualizer = new LabelVisualizer(scene, entityCollection);
-        var labelCollection = scene.primitives.get(0);
-        expect(labelCollection instanceof LabelCollection).toEqual(true);
     });
 
     it('update throws if no time specified.', function() {
@@ -94,8 +89,7 @@ defineSuite([
         var testObject = entityCollection.getOrCreateEntity('test');
         testObject.position = new ConstantProperty(new Cartesian3(1234, 5678, 9101112));
         visualizer.update(JulianDate.now());
-        var labelCollection = scene.primitives.get(0);
-        expect(labelCollection.length).toEqual(0);
+        expect(scene.primitives.get(0)).toBeUndefined();
     });
 
     it('object with no position does not create a label.', function() {
@@ -108,8 +102,7 @@ defineSuite([
         label.text = new ConstantProperty('lorum ipsum');
 
         visualizer.update(JulianDate.now());
-        var labelCollection = scene.primitives.get(0);
-        expect(labelCollection.length).toEqual(0);
+        expect(scene.primitives.get(0)).toBeUndefined();
     });
 
     it('object with no text does not create a label.', function() {
@@ -122,16 +115,12 @@ defineSuite([
         label.show = new ConstantProperty(true);
 
         visualizer.update(JulianDate.now());
-        var labelCollection = scene.primitives.get(0);
-        expect(labelCollection.length).toEqual(0);
+        expect(scene.primitives.get(0)).toBeUndefined();
     });
 
     it('A LabelGraphics causes a label to be created and updated.', function() {
         var entityCollection = new EntityCollection();
         visualizer = new LabelVisualizer(scene, entityCollection);
-
-        var labelCollection = scene.primitives.get(0);
-        expect(labelCollection.length).toEqual(0);
 
         var testObject = entityCollection.getOrCreateEntity('test');
 
@@ -157,6 +146,7 @@ defineSuite([
 
         visualizer.update(time);
 
+        var labelCollection = scene.primitives.get(0);
         expect(labelCollection.length).toEqual(1);
 
         l = labelCollection.get(0);
@@ -215,15 +205,43 @@ defineSuite([
         visualizer.update(time);
     });
 
+    it('Reuses primitives when hiding one and showing another', function() {
+        var time = JulianDate.now();
+        var entityCollection = new EntityCollection();
+        visualizer = new LabelVisualizer(scene, entityCollection);
+
+        var testObject = entityCollection.getOrCreateEntity('test');
+        testObject.position = new ConstantProperty(new Cartesian3(1234, 5678, 9101112));
+        testObject.label = new LabelGraphics();
+        testObject.label.text = new ConstantProperty('a');
+        testObject.label.show = new ConstantProperty(true);
+
+        visualizer.update(time);
+
+        var labelCollection = scene.primitives.get(0);
+        expect(labelCollection.length).toEqual(1);
+
+        testObject.label.show = new ConstantProperty(false);
+
+        visualizer.update(time);
+
+        expect(labelCollection.length).toEqual(1);
+
+        var testObject2 = entityCollection.getOrCreateEntity('test2');
+        testObject2.position = new ConstantProperty(new Cartesian3(1234, 5678, 9101112));
+        testObject2.label = new LabelGraphics();
+        testObject2.label.text = new ConstantProperty('b');
+        testObject2.label.show = new ConstantProperty(true);
+
+        visualizer.update(time);
+        expect(labelCollection.length).toEqual(1);
+    });
+
     it('clear hides labels.', function() {
         var entityCollection = new EntityCollection();
         visualizer = new LabelVisualizer(scene, entityCollection);
 
-        var labelCollection = scene.primitives.get(0);
-        expect(labelCollection.length).toEqual(0);
-
         var testObject = entityCollection.getOrCreateEntity('test');
-
         var time = JulianDate.now();
         var label = testObject.label = new LabelGraphics();
 
@@ -232,6 +250,7 @@ defineSuite([
         label.text = new ConstantProperty('lorum ipsum');
         visualizer.update(time);
 
+        var labelCollection = scene.primitives.get(0);
         expect(labelCollection.length).toEqual(1);
         var l = labelCollection.get(0);
         expect(l.show).toEqual(true);
@@ -247,11 +266,7 @@ defineSuite([
         var entityCollection = new EntityCollection();
         visualizer = new LabelVisualizer(scene, entityCollection);
 
-        var labelCollection = scene.primitives.get(0);
-        expect(labelCollection.length).toEqual(0);
-
         var testObject = entityCollection.getOrCreateEntity('test');
-
         var time = JulianDate.now();
         var label = testObject.label = new LabelGraphics();
 
@@ -259,8 +274,59 @@ defineSuite([
         label.show = new ConstantProperty(true);
         label.text = new ConstantProperty('lorum ipsum');
         visualizer.update(time);
+
+        var labelCollection = scene.primitives.get(0);
         expect(labelCollection.length).toEqual(1);
         var l = labelCollection.get(0);
         expect(l.id).toEqual(testObject);
+    });
+
+    it('Computes bounding sphere.', function() {
+        var entityCollection = new EntityCollection();
+        visualizer = new LabelVisualizer(scene, entityCollection);
+
+        var testObject = entityCollection.getOrCreateEntity('test');
+        var time = JulianDate.now();
+        var label = testObject.label = new LabelGraphics();
+
+        testObject.position = new ConstantProperty(new Cartesian3(1234, 5678, 9101112));
+        label.show = new ConstantProperty(true);
+        label.text = new ConstantProperty('lorum ipsum');
+        visualizer.update(time);
+
+        var result = new BoundingSphere();
+        var state = visualizer.getBoundingSphere(testObject, result);
+
+        expect(state).toBe(BoundingSphereState.DONE);
+        expect(result.center).toEqual(testObject.position.getValue());
+        expect(result.radius).toEqual(0);
+    });
+
+    it('Fails bounding sphere for entity without billboard.', function() {
+        var entityCollection = new EntityCollection();
+        var testObject = entityCollection.getOrCreateEntity('test');
+        visualizer = new LabelVisualizer(scene, entityCollection);
+        visualizer.update(JulianDate.now());
+        var result = new BoundingSphere();
+        var state = visualizer.getBoundingSphere(testObject, result);
+        expect(state).toBe(BoundingSphereState.FAILED);
+    });
+
+    it('Compute bounding sphere throws without entity.', function() {
+        var entityCollection = new EntityCollection();
+        visualizer = new LabelVisualizer(scene, entityCollection);
+        var result = new BoundingSphere();
+        expect(function() {
+            visualizer.getBoundingSphere(undefined, result);
+        }).toThrowDeveloperError();
+    });
+
+    it('Compute bounding sphere throws without result.', function() {
+        var entityCollection = new EntityCollection();
+        var testObject = entityCollection.getOrCreateEntity('test');
+        visualizer = new LabelVisualizer(scene, entityCollection);
+        expect(function() {
+            visualizer.getBoundingSphere(testObject, undefined);
+        }).toThrowDeveloperError();
     });
 }, 'WebGL');

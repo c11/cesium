@@ -1,22 +1,23 @@
+
 /*global defineSuite*/
 defineSuite([
         'Core/PolygonGeometry',
         'Core/BoundingSphere',
         'Core/Cartesian3',
-        'Core/Cartographic',
         'Core/Ellipsoid',
         'Core/Math',
-        'Core/VertexFormat'
+        'Core/VertexFormat',
+        'Specs/createPackableSpecs'
     ], function(
         PolygonGeometry,
         BoundingSphere,
         Cartesian3,
-        Cartographic,
         Ellipsoid,
         CesiumMath,
-        VertexFormat) {
+        VertexFormat,
+        createPackableSpecs) {
     "use strict";
-    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn,runs,waits,waitsFor*/
+    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn*/
 
     it('throws without hierarchy', function() {
         expect(function() {
@@ -30,88 +31,71 @@ defineSuite([
         }).toThrowDeveloperError();
     });
 
-    it('throws with less than three positions', function() {
-        expect(function() {
-            return PolygonGeometry.createGeometry(PolygonGeometry.fromPositions({ positions : [new Cartesian3()] }));
-        }).toThrowDeveloperError();
+    it('returns undefined with less than three positions', function() {
+        expect(PolygonGeometry.createGeometry(PolygonGeometry.fromPositions({
+            positions : [new Cartesian3()]
+        }))).toBeUndefined();
     });
 
-    it('throws with polygon hierarchy with less than three positions', function() {
-        var hierarchy = {
-            positions : Ellipsoid.WGS84.cartographicArrayToCartesianArray([
-                new Cartographic()
+    it('returns undefined with polygon hierarchy with less than three positions', function() {
+        expect(PolygonGeometry.createGeometry(new PolygonGeometry({
+            polygonHierarchy : {
+                positions : [Cartesian3.fromDegrees(0, 0)]
+            }
+        }))).toBeUndefined();
+    });
+
+    it('createGeometry returns undefined due to duplicate positions', function() {
+        var geometry = PolygonGeometry.createGeometry(PolygonGeometry.fromPositions({
+            positions : Cartesian3.fromDegreesArray([
+                0.0, 0.0,
+                0.0, 0.0,
+                0.0, 0.0
             ])
-        };
-
-        expect(function() {
-            return PolygonGeometry.createGeometry(new PolygonGeometry({ polygonHierarchy : hierarchy }));
-        }).toThrowDeveloperError();
+        }));
+        expect(geometry).not.toBeDefined();
     });
 
-    it('throws due to duplicate positions', function() {
-        var ellipsoid = Ellipsoid.UNIT_SPHERE;
-
-        expect(function() {
-            return PolygonGeometry.createGeometry(PolygonGeometry.fromPositions({
-                positions : [
-                    ellipsoid.cartographicToCartesian(Cartographic.fromDegrees(0.0, 0.0, 0.0)),
-                    ellipsoid.cartographicToCartesian(Cartographic.fromDegrees(0.0, 0.0, 0.0)),
-                    ellipsoid.cartographicToCartesian(Cartographic.fromDegrees(0.0, 0.0, 0.0))
-                ],
-                ellipsoid : ellipsoid
-            }));
-        }).toThrowDeveloperError();
+    it('createGeometry returns undefined due to duplicate positions extruded', function() {
+        var geometry = PolygonGeometry.createGeometry(PolygonGeometry.fromPositions({
+            positions : Cartesian3.fromDegreesArray([
+                0.0, 0.0,
+                0.0, 0.0,
+                0.0, 0.0
+            ]),
+            extrudedHeight: 2
+        }));
+        expect(geometry).not.toBeDefined();
     });
 
-    it('throws due to duplicate positions extruded', function() {
-        var ellipsoid = Ellipsoid.UNIT_SPHERE;
-
-        expect(function() {
-            return PolygonGeometry.createGeometry(PolygonGeometry.fromPositions({
-                positions : [
-                    ellipsoid.cartographicToCartesian(Cartographic.fromDegrees(0.0, 0.0, 0.0)),
-                    ellipsoid.cartographicToCartesian(Cartographic.fromDegrees(0.0, 0.0, 0.0)),
-                    ellipsoid.cartographicToCartesian(Cartographic.fromDegrees(0.0, 0.0, 0.0))
-                ],
-                ellipsoid : ellipsoid,
-                extrudedHeight: 2
-            }));
-        }).toThrowDeveloperError();
-    });
-
-    it('throws due to duplicate hierarchy positions', function() {
-        var ellipsoid = Ellipsoid.UNIT_SPHERE;
+    it('createGeometry returns undefined due to duplicate hierarchy positions', function() {
         var hierarchy = {
-                positions : ellipsoid.cartographicArrayToCartesianArray([
-                    Cartographic.fromDegrees(1.0, 1.0, 0.0),
-                    Cartographic.fromDegrees(1.0, 1.0, 0.0),
-                    Cartographic.fromDegrees(1.0, 1.0, 0.0)
+                positions : Cartesian3.fromDegreesArray([
+                    1.0, 1.0,
+                    1.0, 1.0,
+                    1.0, 1.0
                 ]),
                 holes : [{
-                    positions : ellipsoid.cartographicArrayToCartesianArray([
-                        Cartographic.fromDegrees(0.0, 0.0, 0.0),
-                        Cartographic.fromDegrees(0.0, 0.0, 0.0),
-                        Cartographic.fromDegrees(0.0, 0.0, 0.0)
+                    positions : Cartesian3.fromDegreesArray([
+                        0.0, 0.0,
+                        0.0, 0.0,
+                        0.0, 0.0
                     ])
                 }]
         };
 
-        expect(function() {
-            return PolygonGeometry.createGeometry(new PolygonGeometry({
-                polygonHierarchy : hierarchy,
-                ellipsoid : ellipsoid
-            }));
-        }).toThrowDeveloperError();
+        var geometry = PolygonGeometry.createGeometry(new PolygonGeometry({ polygonHierarchy : hierarchy }));
+        expect(geometry).not.toBeDefined();
     });
 
     it('computes positions', function() {
         var p = PolygonGeometry.createGeometry(PolygonGeometry.fromPositions({
             vertexformat : VertexFormat.POSITION_ONLY,
-            positions : Ellipsoid.WGS84.cartographicArrayToCartesianArray([
-                Cartographic.fromDegrees(-50.0, -50.0, 0.0),
-                Cartographic.fromDegrees(50.0, -50.0, 0.0),
-                Cartographic.fromDegrees(50.0, 50.0, 0.0),
-                Cartographic.fromDegrees(-50.0, 50.0, 0.0)
+            positions : Cartesian3.fromDegreesArray([
+                -50.0, -50.0,
+                50.0, -50.0,
+                50.0, 50.0,
+                -50.0, 50.0
             ]),
             granularity : CesiumMath.PI_OVER_THREE
         }));
@@ -122,11 +106,11 @@ defineSuite([
 
     it('computes positions with per position heights', function() {
         var ellipsoid = Ellipsoid.WGS84;
-        var positions = ellipsoid.cartographicArrayToCartesianArray([
-           Cartographic.fromDegrees(-50.0, -50.0, 100000.0),
-           Cartographic.fromDegrees(50.0, -50.0, 0.0),
-           Cartographic.fromDegrees(50.0, 50.0, 0.0),
-           Cartographic.fromDegrees(-50.0, 50.0, 0.0)
+        var positions = Cartesian3.fromDegreesArrayHeights([
+           -50.0, -50.0, 100000.0,
+           50.0, -50.0, 0.0,
+           50.0, 50.0, 0.0,
+           -50.0, 50.0, 0.0
        ]);
         var p = PolygonGeometry.createGeometry(PolygonGeometry.fromPositions({
             positions : positions,
@@ -141,11 +125,11 @@ defineSuite([
     it('computes all attributes', function() {
         var p = PolygonGeometry.createGeometry(PolygonGeometry.fromPositions({
             vertexFormat : VertexFormat.ALL,
-            positions : Ellipsoid.WGS84.cartographicArrayToCartesianArray([
-                Cartographic.fromDegrees(-50.0, -50.0, 0.0),
-                Cartographic.fromDegrees(50.0, -50.0, 0.0),
-                Cartographic.fromDegrees(50.0, 50.0, 0.0),
-                Cartographic.fromDegrees(-50.0, 50.0, 0.0)
+            positions : Cartesian3.fromDegreesArray([
+                -50.0, -50.0,
+                50.0, -50.0,
+                50.0, 50.0,
+                -50.0, 50.0
             ]),
             granularity : CesiumMath.PI_OVER_THREE
         }));
@@ -160,25 +144,25 @@ defineSuite([
 
     it('creates a polygon from hierarchy', function() {
         var hierarchy = {
-            positions : Ellipsoid.WGS84.cartographicArrayToCartesianArray([
-                Cartographic.fromDegrees(-124.0, 35.0, 0.0),
-                Cartographic.fromDegrees(-110.0, 35.0, 0.0),
-                Cartographic.fromDegrees(-110.0, 40.0, 0.0),
-                Cartographic.fromDegrees(-124.0, 40.0, 0.0)
+            positions : Cartesian3.fromDegreesArray([
+                -124.0, 35.0,
+                -110.0, 35.0,
+                -110.0, 40.0,
+                -124.0, 40.0
             ]),
             holes : [{
-                positions : Ellipsoid.WGS84.cartographicArrayToCartesianArray([
-                    Cartographic.fromDegrees(-122.0, 36.0, 0.0),
-                    Cartographic.fromDegrees(-122.0, 39.0, 0.0),
-                    Cartographic.fromDegrees(-112.0, 39.0, 0.0),
-                    Cartographic.fromDegrees(-112.0, 36.0, 0.0)
+                positions : Cartesian3.fromDegreesArray([
+                    -122.0, 36.0,
+                    -122.0, 39.0,
+                    -112.0, 39.0,
+                    -112.0, 36.0
                 ]),
                 holes : [{
-                    positions : Ellipsoid.WGS84.cartographicArrayToCartesianArray([
-                        Cartographic.fromDegrees(-120.0, 36.5, 0.0),
-                        Cartographic.fromDegrees(-114.0, 36.5, 0.0),
-                        Cartographic.fromDegrees(-114.0, 38.5, 0.0),
-                        Cartographic.fromDegrees(-120.0, 38.5, 0.0)
+                    positions : Cartesian3.fromDegreesArray([
+                        -120.0, 36.5,
+                        -114.0, 36.5,
+                        -114.0, 38.5,
+                        -120.0, 38.5
                     ])
                 }]
             }]
@@ -196,28 +180,28 @@ defineSuite([
 
     it('removes duplicates in polygon hierarchy', function() {
         var hierarchy = {
-            positions : Ellipsoid.WGS84.cartographicArrayToCartesianArray([
-                Cartographic.fromDegrees(-124.0, 35.0, 0.0),
-                Cartographic.fromDegrees(-110.0, 35.0, 0.0),
-                Cartographic.fromDegrees(-110.0, 35.0, 0.0),
-                Cartographic.fromDegrees(-110.0, 40.0, 0.0),
-                Cartographic.fromDegrees(-124.0, 40.0, 0.0)
+            positions : Cartesian3.fromDegreesArray([
+                -124.0, 35.0,
+                -110.0, 35.0,
+                -110.0, 35.0,
+                -110.0, 40.0,
+                -124.0, 40.0
             ]),
             holes : [{
-                positions : Ellipsoid.WGS84.cartographicArrayToCartesianArray([
-                    Cartographic.fromDegrees(-122.0, 36.0, 0.0),
-                    Cartographic.fromDegrees(-122.0, 39.0, 0.0),
-                    Cartographic.fromDegrees(-122.0, 39.0, 0.0),
-                    Cartographic.fromDegrees(-112.0, 39.0, 0.0),
-                    Cartographic.fromDegrees(-112.0, 36.0, 0.0)
+                positions : Cartesian3.fromDegreesArray([
+                    -122.0, 36.0,
+                    -122.0, 39.0,
+                    -122.0, 39.0,
+                    -112.0, 39.0,
+                    -112.0, 36.0
                 ]),
                 holes : [{
-                    positions : Ellipsoid.WGS84.cartographicArrayToCartesianArray([
-                        Cartographic.fromDegrees(-120.0, 36.5, 0.0),
-                        Cartographic.fromDegrees(-114.0, 36.5, 0.0),
-                        Cartographic.fromDegrees(-114.0, 36.5, 0.0),
-                        Cartographic.fromDegrees(-114.0, 38.5, 0.0),
-                        Cartographic.fromDegrees(-120.0, 38.5, 0.0)
+                    positions : Cartesian3.fromDegreesArray([
+                        -120.0, 36.5,
+                        -114.0, 36.5,
+                        -114.0, 36.5,
+                        -114.0, 38.5,
+                        -120.0, 38.5
                     ])
                 }]
             }]
@@ -235,25 +219,25 @@ defineSuite([
 
     it('creates a polygon from clockwise hierarchy', function() {
         var hierarchy = {
-            positions : Ellipsoid.WGS84.cartographicArrayToCartesianArray([
-                Cartographic.fromDegrees(-124.0, 35.0, 0.0),
-                Cartographic.fromDegrees(-124.0, 40.0, 0.0),
-                Cartographic.fromDegrees(-110.0, 40.0, 0.0),
-                Cartographic.fromDegrees(-110.0, 35.0, 0.0)
+            positions : Cartesian3.fromDegreesArray([
+                -124.0, 35.0,
+                -124.0, 40.0,
+                -110.0, 40.0,
+                -110.0, 35.0
             ]),
             holes : [{
-                positions : Ellipsoid.WGS84.cartographicArrayToCartesianArray([
-                    Cartographic.fromDegrees(-122.0, 36.0, 0.0),
-                    Cartographic.fromDegrees(-112.0, 36.0, 0.0),
-                    Cartographic.fromDegrees(-112.0, 39.0, 0.0),
-                    Cartographic.fromDegrees(-122.0, 39.0, 0.0)
+                positions : Cartesian3.fromDegreesArray([
+                    -122.0, 36.0,
+                    -112.0, 36.0,
+                    -112.0, 39.0,
+                    -122.0, 39.0
                 ]),
                 holes : [{
-                    positions : Ellipsoid.WGS84.cartographicArrayToCartesianArray([
-                        Cartographic.fromDegrees(-120.0, 36.5, 0.0),
-                        Cartographic.fromDegrees(-120.0, 38.5, 0.0),
-                        Cartographic.fromDegrees(-114.0, 38.5, 0.0),
-                        Cartographic.fromDegrees(-114.0, 36.5, 0.0)
+                    positions : Cartesian3.fromDegreesArray([
+                        -120.0, 36.5,
+                        -120.0, 38.5,
+                        -114.0, 38.5,
+                        -114.0, 36.5
                     ])
                 }]
             }]
@@ -287,13 +271,12 @@ defineSuite([
     });
 
     it('computes correct bounding sphere at height >>> 0', function() {
-        var ellipsoid = Ellipsoid.WGS84;
         var height = 40000000.0;
-        var positions = ellipsoid.cartographicArrayToCartesianArray([
-            Cartographic.fromDegrees(-108.0, 1.0),
-            Cartographic.fromDegrees(-108.0, -1.0),
-            Cartographic.fromDegrees(-106.0, -1.0),
-            Cartographic.fromDegrees(-106.0, 1.0)
+        var positions = Cartesian3.fromDegreesArray([
+            -108.0, 1.0,
+            -108.0, -1.0,
+            -106.0, -1.0,
+            -106.0, 1.0
         ]);
 
         var p = PolygonGeometry.createGeometry(PolygonGeometry.fromPositions({
@@ -302,11 +285,11 @@ defineSuite([
             height : height
         }));
 
-        var bs = BoundingSphere.fromPoints(ellipsoid.cartographicArrayToCartesianArray([
-            Cartographic.fromDegrees(-108.0, 1.0, height),
-            Cartographic.fromDegrees(-108.0, -1.0, height),
-            Cartographic.fromDegrees(-106.0, -1.0, height),
-            Cartographic.fromDegrees(-106.0, 1.0, height)
+        var bs = BoundingSphere.fromPoints(Cartesian3.fromDegreesArrayHeights([
+            -108.0, 1.0, height,
+            -108.0, -1.0, height,
+            -106.0, -1.0, height,
+            -106.0, 1.0, height
         ]));
         expect(Math.abs(p.boundingSphere.radius - bs.radius)).toBeLessThan(100.0);
     });
@@ -314,11 +297,11 @@ defineSuite([
     it('computes positions extruded', function() {
         var p = PolygonGeometry.createGeometry(PolygonGeometry.fromPositions({
             vertexFormat : VertexFormat.POSITION_ONLY,
-            positions : Ellipsoid.WGS84.cartographicArrayToCartesianArray([
-                Cartographic.fromDegrees(-50.0, -50.0, 0.0),
-                Cartographic.fromDegrees(50.0, -50.0, 0.0),
-                Cartographic.fromDegrees(50.0, 50.0, 0.0),
-                Cartographic.fromDegrees(-50.0, 50.0, 0.0)
+            positions : Cartesian3.fromDegreesArray([
+                -50.0, -50.0,
+                50.0, -50.0,
+                50.0, 50.0,
+                -50.0, 50.0
             ]),
             granularity : CesiumMath.PI_OVER_THREE,
             extrudedHeight: 30000
@@ -331,12 +314,12 @@ defineSuite([
     it('removes duplicates extruded', function() {
         var p = PolygonGeometry.createGeometry(PolygonGeometry.fromPositions({
             vertexFormat : VertexFormat.POSITION_ONLY,
-            positions : Ellipsoid.WGS84.cartographicArrayToCartesianArray([
-                Cartographic.fromDegrees(-50.0, -50.0, 0.0),
-                Cartographic.fromDegrees(50.0, -50.0, 0.0),
-                Cartographic.fromDegrees(50.0, 50.0, 0.0),
-                Cartographic.fromDegrees(-50.0, 50.0, 0.0),
-                Cartographic.fromDegrees(-50.0, -50.0, 0.0)
+            positions : Cartesian3.fromDegreesArray([
+                -50.0, -50.0,
+                50.0, -50.0,
+                50.0, 50.0,
+                -50.0, 50.0,
+                -50.0, -50.0
             ]),
             granularity : CesiumMath.PI_OVER_THREE,
             extrudedHeight: 30000
@@ -350,11 +333,11 @@ defineSuite([
         var p = PolygonGeometry.createGeometry(new PolygonGeometry({
             vertexFormat : VertexFormat.ALL,
             polygonHierarchy: {
-                    positions : Ellipsoid.WGS84.cartographicArrayToCartesianArray([
-                        Cartographic.fromDegrees(-50.0, -50.0, 0.0),
-                        Cartographic.fromDegrees(50.0, -50.0, 0.0),
-                        Cartographic.fromDegrees(50.0, 50.0, 0.0),
-                        Cartographic.fromDegrees(-50.0, 50.0, 0.0)
+                    positions : Cartesian3.fromDegreesArray([
+                        -50.0, -50.0,
+                        50.0, -50.0,
+                        50.0, 50.0,
+                        -50.0, 50.0
                     ])},
             granularity : CesiumMath.PI_OVER_THREE,
             extrudedHeight: 30000
@@ -370,25 +353,25 @@ defineSuite([
 
     it('creates a polygon from hierarchy extruded', function() {
         var hierarchy = {
-            positions : Ellipsoid.WGS84.cartographicArrayToCartesianArray([
-                Cartographic.fromDegrees(-124.0, 35.0, 0.0),
-                Cartographic.fromDegrees(-110.0, 35.0, 0.0),
-                Cartographic.fromDegrees(-110.0, 40.0, 0.0),
-                Cartographic.fromDegrees(-124.0, 40.0, 0.0)
+            positions : Cartesian3.fromDegreesArray([
+                -124.0, 35.0,
+                -110.0, 35.0,
+                -110.0, 40.0,
+                -124.0, 40.0
             ]),
             holes : [{
-                positions : Ellipsoid.WGS84.cartographicArrayToCartesianArray([
-                    Cartographic.fromDegrees(-122.0, 36.0, 0.0),
-                    Cartographic.fromDegrees(-122.0, 39.0, 0.0),
-                    Cartographic.fromDegrees(-112.0, 39.0, 0.0),
-                    Cartographic.fromDegrees(-112.0, 36.0, 0.0)
+                positions : Cartesian3.fromDegreesArray([
+                    -122.0, 36.0,
+                    -122.0, 39.0,
+                    -112.0, 39.0,
+                    -112.0, 36.0
                 ]),
                 holes : [{
-                    positions : Ellipsoid.WGS84.cartographicArrayToCartesianArray([
-                        Cartographic.fromDegrees(-120.0, 36.5, 0.0),
-                        Cartographic.fromDegrees(-114.0, 36.5, 0.0),
-                        Cartographic.fromDegrees(-114.0, 38.5, 0.0),
-                        Cartographic.fromDegrees(-120.0, 38.5, 0.0)
+                    positions : Cartesian3.fromDegreesArray([
+                        -120.0, 36.5,
+                        -114.0, 36.5,
+                        -114.0, 38.5,
+                        -120.0, 38.5
                     ])
                 }]
             }]
@@ -405,4 +388,51 @@ defineSuite([
         expect(p.indices.length).toEqual(3 * 22 * 2);
     });
 
+    var positions = Cartesian3.fromDegreesArray([
+        -124.0, 35.0,
+        -110.0, 35.0,
+        -110.0, 40.0
+    ]);
+    var holePositions0 = Cartesian3.fromDegreesArray([
+        -122.0, 36.0,
+        -122.0, 39.0,
+        -112.0, 39.0
+    ]);
+    var holePositions1 = Cartesian3.fromDegreesArray([
+        -120.0, 36.5,
+        -114.0, 36.5,
+        -114.0, 38.5
+    ]);
+    var hierarchy = {
+        positions : positions,
+        holes : [{
+            positions : holePositions0,
+            holes : [{
+                positions : holePositions1,
+                holes : undefined
+            }]
+        }]
+    };
+
+    var polygon = new PolygonGeometry({
+        vertexFormat : VertexFormat.POSITION_ONLY,
+        polygonHierarchy : hierarchy,
+        granularity : CesiumMath.PI_OVER_THREE,
+        perPositionHeight : true
+    });
+
+    function addPositions(array, positions) {
+        for (var i = 0; i < positions.length; ++i) {
+            array.push(positions[i].x, positions[i].y, positions[i].z);
+        }
+    }
+    var packedInstance = [3.0, 1.0];
+    addPositions(packedInstance, positions);
+    packedInstance.push(3.0, 1.0);
+    addPositions(packedInstance, holePositions0);
+    packedInstance.push(3.0, 0.0);
+    addPositions(packedInstance, holePositions1);
+    packedInstance.push(Ellipsoid.WGS84.radii.x, Ellipsoid.WGS84.radii.y, Ellipsoid.WGS84.radii.z);
+    packedInstance.push(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, CesiumMath.PI_OVER_THREE, 0.0, 0.0, 1.0, 49);
+    createPackableSpecs(PolygonGeometry, polygon, packedInstance);
 });

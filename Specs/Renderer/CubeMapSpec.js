@@ -2,7 +2,7 @@
 defineSuite([
         'Core/Cartesian3',
         'Core/Color',
-        'Core/FeatureDetection',
+        'Core/loadImage',
         'Core/PixelFormat',
         'Core/PrimitiveType',
         'Renderer/BufferUsage',
@@ -13,11 +13,11 @@ defineSuite([
         'Renderer/TextureMinificationFilter',
         'Renderer/TextureWrap',
         'Specs/createContext',
-        'Specs/destroyContext'
+        'ThirdParty/when'
     ], 'Renderer/CubeMap', function(
         Cartesian3,
         Color,
-        FeatureDetection,
+        loadImage,
         PixelFormat,
         PrimitiveType,
         BufferUsage,
@@ -28,9 +28,9 @@ defineSuite([
         TextureMinificationFilter,
         TextureWrap,
         createContext,
-        destroyContext) {
+        when) {
     "use strict";
-    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn,runs,waits,waitsFor*/
+    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn*/
 
     var context;
     var sp;
@@ -44,34 +44,32 @@ defineSuite([
 
     beforeAll(function() {
         context = createContext();
+
+        var promises = [];
+        promises.push(loadImage('./Data/Images/Green.png').then(function(result) {
+            greenImage = result;
+        }));
+        promises.push(loadImage('./Data/Images/Blue.png').then(function(result) {
+            blueImage = result;
+        }));
+        promises.push(loadImage('./Data/Images/BlueAlpha.png').then(function(result) {
+            blueAlphaImage = result;
+        }));
+        promises.push(loadImage('./Data/Images/BlueOverRed.png').then(function(result) {
+            blueOverRedImage = result;
+        }));
+
+        return when.all(promises);
     });
 
     afterAll(function() {
-        destroyContext(context);
+        context.destroyForSpecs();
     });
 
     afterEach(function() {
         sp = sp && sp.destroy();
         va = va && va.destroy();
         cubeMap = cubeMap && cubeMap.destroy();
-    });
-
-    it('create images', function() {
-        greenImage = new Image();
-        greenImage.src = './Data/Images/Green.png';
-
-        blueImage = new Image();
-        blueImage.src = './Data/Images/Blue.png';
-
-        blueAlphaImage = new Image();
-        blueAlphaImage.src = './Data/Images/BlueAlpha.png';
-
-        blueOverRedImage = new Image();
-        blueOverRedImage.src = './Data/Images/BlueOverRed.png';
-
-        waitsFor(function() {
-            return greenImage.complete && blueImage.complete && blueAlphaImage.complete && blueOverRedImage.complete;
-        }, 'Load .png file(s) for texture test.', 3000);
     });
 
     it('gets the pixel format', function() {
@@ -233,11 +231,6 @@ defineSuite([
     });
 
     it('draws with a cube map with premultiplied alpha', function() {
-        if (FeatureDetection.isInternetExplorer()) {
-            // Workaround IE 11.0.8, which does not support premultiplied alpha
-            return;
-        }
-
         cubeMap = context.createCubeMap({
             source : {
                 positiveX : blueAlphaImage,
@@ -1141,11 +1134,6 @@ defineSuite([
     });
 
     it('fails to generate mipmaps (width)', function() {
-        if (FeatureDetection.isInternetExplorer()) {
-            // Workaround IE 11.0.9, which does not support non-power-of-two cube map faces
-            return;
-        }
-
         cubeMap = context.createCubeMap({
             width : 3,
             height : 3

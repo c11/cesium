@@ -2,6 +2,7 @@
 define([
         '../ThirdParty/Uri',
         '../ThirdParty/when',
+        './appendForwardSlash',
         './BoundingSphere',
         './Cartesian3',
         './Credit',
@@ -12,6 +13,7 @@ define([
         './Event',
         './GeographicTilingScheme',
         './HeightmapTerrainData',
+        './IndexDatatype',
         './loadArrayBuffer',
         './loadJson',
         './QuantizedMeshTerrainData',
@@ -22,6 +24,7 @@ define([
     ], function(
         Uri,
         when,
+        appendForwardSlash,
         BoundingSphere,
         Cartesian3,
         Credit,
@@ -32,6 +35,7 @@ define([
         Event,
         GeographicTilingScheme,
         HeightmapTerrainData,
+        IndexDatatype,
         loadArrayBuffer,
         loadJson,
         QuantizedMeshTerrainData,
@@ -53,6 +57,7 @@ define([
      * @param {String} options.url The URL of the Cesium terrain server.
      * @param {Proxy} [options.proxy] A proxy to use for requests. This object is expected to have a getURL function which returns the proxied URL, if needed.
      * @param {Boolean} [options.requestVertexNormals=false] Flag that indicates if the client should request additional lighting information from the server, in the form of per vertex normals if available.
+     * @param {Boolean} [options.requestWaterMask=false] Flag that indicates if the client should request per tile water masks from the server,  if available.
      * @param {Credit|String} [options.credit] A credit for the data source, which is displayed on the canvas.
      *
      * @see TerrainProvider
@@ -61,7 +66,7 @@ define([
      * // Construct a terrain provider that uses per vertex normals for lighting
      * // to add shading detail to an imagery provider.
      * var terrainProvider = new Cesium.CesiumTerrainProvider({
-     *     url : '//cesiumjs.org/stk-terrain/tilesets/world/tiles',
+     *     url : '//assets.agi.com/stk-terrain/world',
      *     requestVertexNormals : true
      * });
      *
@@ -88,10 +93,7 @@ define([
         }
         //>>includeEnd('debug');
 
-        this._url = options.url;
-        if (this._url.length === 0 || this._url[this._url.length - 1] !== '/') {
-            this._url = this._url + '/';
-        }
+        this._url = appendForwardSlash(options.url);
         this._proxy = options.proxy;
 
         this._tilingScheme = new GeographicTilingScheme({
@@ -119,6 +121,14 @@ define([
          * @private
          */
         this._requestVertexNormals = defaultValue(options.requestVertexNormals, false);
+        this._littleEndianExtensionSize = true;
+        /**
+         * Boolean flag that indicates if the client should request tile watermasks from the server.
+         * @type {Boolean}
+         * @default false
+         * @private
+         */
+        this._requestWaterMask = defaultValue(options.requestWaterMask, false);
 
         this._errorEvent = new Event();
 
@@ -163,9 +173,8 @@ define([
                         isBigEndian : false
                     };
                 that._hasWaterMask = true;
-            } else if (data.format.indexOf('quantized-mesh-1.') === 0) {
-                that._hasWaterMask = false;
-            } else {
+                that._requestWaterMask = true;
+            } else if (data.format.indexOf('quantized-mesh-1.') !== 0) {
                 message = 'The tile format "' + data.format + '" is invalid or not supported.';
                 metadataError = TileProviderError.handleError(metadataError, that, that._errorEvent, message, undefined, undefined, undefined, requestMetadata);
                 return;
@@ -184,8 +193,20 @@ define([
                 that._credit = new Credit(data.attribution);
             }
 
-            if (defined(data.extensions) && data.extensions.indexOf('vertexnormals') !== -1) {
+            // The vertex normals defined in the 'octvertexnormals' extension is identical to the original
+            // contents of the original 'vertexnormals' extension.  'vertexnormals' extension is now
+            // deprecated, as the extensionLength for this extension was incorrectly using big endian.
+            // We maintain backwards compatibility with the legacy 'vertexnormal' implementation
+            // by setting the _littleEndianExtensionSize to false. Always prefer 'octvertexnormals'
+            // over 'vertexnormals' if both extensions are supported by the server.
+            if (defined(data.extensions) && data.extensions.indexOf('octvertexnormals') !== -1) {
                 that._hasVertexNormals = true;
+            } else if (defined(data.extensions) && data.extensions.indexOf('vertexnormals') !== -1) {
+                that._hasVertexNormals = true;
+                that._littleEndianExtensionSize = false;
+            }
+            if (defined(data.extensions) && data.extensions.indexOf('watermask') !== -1) {
+                that._hasWaterMask = true;
             }
 
             that._ready = true;
@@ -234,26 +255,28 @@ define([
          * @constant
          * @default 1
          */
-        OCT_VERTEX_NORMALS: 1
+        OCT_VERTEX_NORMALS: 1,
+        /**
+         * A watermask is included as an extension to the tile mesh
+         *
+         * @type {Number}
+         * @constant
+         * @default 2
+         */
+        WATER_MASK: 2
     };
 
-    var requestHeadersVertexNormals = {
-            // prefer quantized-mesh media-type
-            // only request vertex normals if Lighting is enabled on the CesiumTerrainProvider
-            Accept : 'application/vnd.quantized-mesh;extensions=vertexnormals,application/octet-stream;q=0.9,*/*;q=0.01'
-    };
-
-    function loadTileVertexNormals(url) {
-        return loadArrayBuffer(url, requestHeadersVertexNormals);
-    }
-
-    var requestHeadersDefault = {
-            // prefer quantized-mesh media-type
-            Accept : 'application/vnd.quantized-mesh,application/octet-stream;q=0.9,*/*;q=0.01'
-    };
-
-    function loadTile(url) {
-        return loadArrayBuffer(url, requestHeadersDefault);
+    function getRequestHeader(extensionsList) {
+        if (!defined(extensionsList) || extensionsList.length === 0) {
+            return {
+                Accept : 'application/vnd.quantized-mesh,application/octet-stream;q=0.9,*/*;q=0.01'
+            };
+        } else {
+            var extensions = extensionsList.join('-');
+            return {
+                Accept : 'application/vnd.quantized-mesh;extensions=' + extensions + ',application/octet-stream;q=0.9,*/*;q=0.01'
+            };
+        }
     }
 
     function createHeightmapTerrainData(provider, buffer, level, x, y, tmsY) {
@@ -274,11 +297,11 @@ define([
         var boundingSphereElements = cartesian3Elements + 1;
         var cartesian3Length = Float64Array.BYTES_PER_ELEMENT * cartesian3Elements;
         var boundingSphereLength = Float64Array.BYTES_PER_ELEMENT * boundingSphereElements;
-        var vertexElements = 6;
         var encodedVertexElements = 3;
         var encodedVertexLength = Uint16Array.BYTES_PER_ELEMENT * encodedVertexElements;
         var triangleElements = 3;
-        var triangleLength = Uint16Array.BYTES_PER_ELEMENT * triangleElements;
+        var bytesPerIndex = Uint16Array.BYTES_PER_ELEMENT;
+        var triangleLength = bytesPerIndex * triangleElements;
 
         var view = new DataView(buffer);
         var center = new Cartesian3(view.getFloat64(pos, true), view.getFloat64(pos + 8, true), view.getFloat64(pos + 16, true));
@@ -303,8 +326,9 @@ define([
         pos += vertexCount * encodedVertexLength;
 
         if (vertexCount > 64 * 1024) {
-            // More than 64k vertices, so indices are 32-bit.  Not supported right now.
-            throw new RuntimeError('CesiumTerrainProvider currently does not support tiles with more than 65536 vertices.');
+            // More than 64k vertices, so indices are 32-bit.
+            bytesPerIndex = Uint32Array.BYTES_PER_ELEMENT;
+            triangleLength = bytesPerIndex * triangleElements;
         }
 
         // Decode the vertex buffer.
@@ -331,9 +355,14 @@ define([
             heightBuffer[i] = height;
         }
 
+        // skip over any additional padding that was added for 2/4 byte alignment
+        if (pos % bytesPerIndex !== 0) {
+            pos += (bytesPerIndex - (pos % bytesPerIndex));
+        }
+
         var triangleCount = view.getUint32(pos, true);
         pos += Uint32Array.BYTES_PER_ELEMENT;
-        var indices = new Uint16Array(buffer, pos, triangleCount * triangleElements);
+        var indices = IndexDatatype.createTypedArrayFromArrayBuffer(vertexCount, buffer, pos, triangleCount * triangleElements);
         pos += triangleCount * triangleLength;
 
         // High water mark decoding based on decompressIndices_ in webgl-loader's loader.js.
@@ -350,33 +379,36 @@ define([
 
         var westVertexCount = view.getUint32(pos, true);
         pos += Uint32Array.BYTES_PER_ELEMENT;
-        var westIndices = new Uint16Array(buffer, pos, westVertexCount);
-        pos += westVertexCount * Uint16Array.BYTES_PER_ELEMENT;
+        var westIndices = IndexDatatype.createTypedArrayFromArrayBuffer(vertexCount, buffer, pos, westVertexCount);
+        pos += westVertexCount * bytesPerIndex;
 
         var southVertexCount = view.getUint32(pos, true);
         pos += Uint32Array.BYTES_PER_ELEMENT;
-        var southIndices = new Uint16Array(buffer, pos, southVertexCount);
-        pos += southVertexCount * Uint16Array.BYTES_PER_ELEMENT;
+        var southIndices = IndexDatatype.createTypedArrayFromArrayBuffer(vertexCount, buffer, pos, southVertexCount);
+        pos += southVertexCount * bytesPerIndex;
 
         var eastVertexCount = view.getUint32(pos, true);
         pos += Uint32Array.BYTES_PER_ELEMENT;
-        var eastIndices = new Uint16Array(buffer, pos, eastVertexCount);
-        pos += eastVertexCount * Uint16Array.BYTES_PER_ELEMENT;
+        var eastIndices = IndexDatatype.createTypedArrayFromArrayBuffer(vertexCount, buffer, pos, eastVertexCount);
+        pos += eastVertexCount * bytesPerIndex;
 
         var northVertexCount = view.getUint32(pos, true);
         pos += Uint32Array.BYTES_PER_ELEMENT;
-        var northIndices = new Uint16Array(buffer, pos, northVertexCount);
-        pos += northVertexCount * Uint16Array.BYTES_PER_ELEMENT;
+        var northIndices = IndexDatatype.createTypedArrayFromArrayBuffer(vertexCount, buffer, pos, northVertexCount);
+        pos += northVertexCount * bytesPerIndex;
 
         var encodedNormalBuffer;
+        var waterMaskBuffer;
         while (pos < view.byteLength) {
-            var extensionId = view.getUint8(pos);
+            var extensionId = view.getUint8(pos, true);
             pos += Uint8Array.BYTES_PER_ELEMENT;
-            var extensionLength = view.getUint32(pos);
+            var extensionLength = view.getUint32(pos, provider._littleEndianExtensionSize);
             pos += Uint32Array.BYTES_PER_ELEMENT;
 
-            if (extensionId === QuantizedMeshExtensionIds.OCT_VERTEX_NORMALS) {
+            if (extensionId === QuantizedMeshExtensionIds.OCT_VERTEX_NORMALS && provider._requestVertexNormals) {
                 encodedNormalBuffer = new Uint8Array(buffer, pos, vertexCount * 2);
+            } else if (extensionId === QuantizedMeshExtensionIds.WATER_MASK && provider._requestWaterMask) {
+                waterMaskBuffer = new Uint8Array(buffer, pos, extensionLength);
             }
             pos += extensionLength;
         }
@@ -400,7 +432,8 @@ define([
             southSkirtHeight : skirtHeight,
             eastSkirtHeight : skirtHeight,
             northSkirtHeight : skirtHeight,
-            childTileMask: getChildMaskForTile(provider, level, x, tmsY)
+            childTileMask: getChildMaskForTile(provider, level, x, tmsY),
+            waterMask: waterMaskBuffer
         });
     }
 
@@ -448,10 +481,17 @@ define([
 
         var promise;
 
-        var tileLoader = loadTile;
+        var extensionList = [];
         if (this._requestVertexNormals && this._hasVertexNormals) {
-            tileLoader = loadTileVertexNormals;
+            extensionList.push(this._littleEndianExtensionSize ? "octvertexnormals" : "vertexnormals");
         }
+        if (this._requestWaterMask && this._hasWaterMask) {
+            extensionList.push("watermask");
+        }
+
+        var tileLoader = function(tileUrl) {
+            return loadArrayBuffer(tileUrl, getRequestHeader(extensionList));
+        };
 
         throttleRequests = defaultValue(throttleRequests, true);
         if (throttleRequests) {
@@ -551,7 +591,7 @@ define([
                 }
                 //>>includeEnd('debug');
 
-                return this._hasWaterMask;
+                return this._hasWaterMask && this._requestWaterMask;
             }
         },
 
@@ -579,15 +619,25 @@ define([
          * Boolean flag that indicates if the client should request vertex normals from the server.
          * Vertex normals data is appended to the standard tile mesh data only if the client requests the vertex normals and
          * if the server provides vertex normals.
-         *
-         * This property is read only. To change this value, a new CesiumTerrainProvider must be constructed that requests
-         * vertex normals to ensure that all existing tiles are requested that includes/excludes vertex normal extension data.
          * @memberof CesiumTerrainProvider.prototype
          * @type {Boolean}
          */
         requestVertexNormals : {
             get : function() {
                 return this._requestVertexNormals;
+            }
+        },
+
+        /**
+         * Boolean flag that indicates if the client should request a watermask from the server.
+         * Watermask data is appended to the standard tile mesh data only if the client requests the watermask and
+         * if the server provides a watermask.
+         * @memberof CesiumTerrainProvider.prototype
+         * @type {Boolean}
+         */
+        requestWaterMask : {
+            get : function() {
+                return this._requestWaterMask;
             }
         }
     });
@@ -635,6 +685,30 @@ define([
 
         return false;
     }
+
+    /**
+     * Determines whether data for a tile is available to be loaded.
+     *
+     * @param {Number} x The X coordinate of the tile for which to request geometry.
+     * @param {Number} y The Y coordinate of the tile for which to request geometry.
+     * @param {Number} level The level of the tile for which to request geometry.
+     * @returns {Boolean} Undefined if not supported, otherwise true or false.
+     */
+    CesiumTerrainProvider.prototype.getTileDataAvailable = function(x, y, level) {
+        var available = this._availableTiles;
+
+        if (!available || available.length === 0) {
+            return undefined;
+        } else {
+            if (level >= available.length) {
+                return false;
+            }
+            var levelAvailable = available[level];
+            var yTiles = this._tilingScheme.getNumberOfYTilesAtLevel(level);
+            var tmsY = (yTiles - y - 1);
+            return isTileInRange(levelAvailable, x, tmsY);
+        }
+    };
 
     return CesiumTerrainProvider;
 });

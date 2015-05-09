@@ -1,14 +1,12 @@
 /*global defineSuite*/
 defineSuite([
         'Renderer/ShaderCache',
-        'Specs/createContext',
-        'Specs/destroyContext'
+        'Specs/createContext'
     ], function(
         ShaderCache,
-        createContext,
-        destroyContext) {
+        createContext) {
     "use strict";
-    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn,runs,waits,waitsFor*/
+    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn*/
 
     var context;
 
@@ -17,7 +15,7 @@ defineSuite([
     });
 
     afterAll(function() {
-        destroyContext(context);
+        context.destroyForSpecs();
     });
 
     it('adds and removes', function() {
@@ -29,12 +27,15 @@ defineSuite([
             position : 0
         });
         expect(sp._cachedShader.count).toEqual(1);
+        expect(cache.numberOfShaders).toEqual(1);
 
         cache.releaseShaderProgram(sp);
         expect(sp.isDestroyed()).toEqual(false);
+        expect(cache.numberOfShaders).toEqual(1);
 
         cache.destroyReleasedShaderPrograms();
         expect(sp.isDestroyed()).toEqual(true);
+        expect(cache.numberOfShaders).toEqual(0);
 
         cache.destroy();
     });
@@ -72,12 +73,14 @@ defineSuite([
 
         expect(sp).toBe(sp2);
         expect(sp._cachedShader.count).toEqual(2);
+        expect(cache.numberOfShaders).toEqual(1);
 
         sp.destroy();
         sp2.destroy();
         cache.destroyReleasedShaderPrograms();
 
         expect(sp.isDestroyed()).toEqual(true);
+        expect(cache.numberOfShaders).toEqual(0);
 
         cache.destroy();
     });

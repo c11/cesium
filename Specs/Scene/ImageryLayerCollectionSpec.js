@@ -2,10 +2,10 @@
 defineSuite([
         'Scene/ImageryLayerCollection',
         'Core/Cartesian3',
-        'Core/defined',
         'Core/Ellipsoid',
         'Core/Event',
         'Core/GeographicTilingScheme',
+        'Core/Matrix4',
         'Core/Ray',
         'Core/Rectangle',
         'Scene/Globe',
@@ -13,16 +13,15 @@ defineSuite([
         'Scene/ImageryLayerFeatureInfo',
         'Scene/ImageryProvider',
         'Specs/createScene',
-        'Specs/destroyScene',
-        'Specs/waitsForPromise',
+        'Specs/pollToPromise',
         'ThirdParty/when'
     ], function(
         ImageryLayerCollection,
         Cartesian3,
-        defined,
         Ellipsoid,
         Event,
         GeographicTilingScheme,
+        Matrix4,
         Ray,
         Rectangle,
         Globe,
@@ -30,11 +29,10 @@ defineSuite([
         ImageryLayerFeatureInfo,
         ImageryProvider,
         createScene,
-        destroyScene,
-        waitsForPromise,
+        pollToPromise,
         when) {
     "use strict";
-    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn,runs,waits,waitsFor*/
+    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn*/
 
     var fakeProvider = {
             isReady : function() { return false; }
@@ -287,7 +285,7 @@ defineSuite([
         });
 
         afterAll(function() {
-            destroyScene(scene);
+            scene.destroyForSpecs();
         });
 
         beforeEach(function() {
@@ -295,33 +293,33 @@ defineSuite([
         });
 
         /**
-         * Repeatedly calls update until the load queue is empty.  You must wrap any code to follow
-         * this in a "runs" function.
+         * Repeatedly calls update until the load queue is empty.  Returns a promise that resolves
+         * once the load queue is empty.
          */
         function updateUntilDone(globe) {
             // update until the load queue is empty.
-            waitsFor(function() {
+            return pollToPromise(function() {
                 globe._surface._debug.enableDebugOutput = true;
                 var commandList = [];
                 globe.update(scene.context, scene.frameState, commandList);
                 return globe._surface.tileProvider.ready && globe._surface._tileLoadQueue.length === 0 && globe._surface._debug.tilesWaitingForChildren === 0;
-            }, 'updating to complete');
+            });
         }
 
         it('returns undefined when pick ray does not intersect surface', function() {
             var ellipsoid = Ellipsoid.WGS84;
-            camera.lookAt(new Cartesian3(ellipsoid.maximumRadius + 100.0, 0.0, 0.0), new Cartesian3(ellipsoid.maximumRadius, 0.0, 0.0), Cartesian3.UNIT_Z);
+            camera.lookAt(new Cartesian3(ellipsoid.maximumRadius, 0.0, 0.0), new Cartesian3(0.0, 0.0, 100.0));
 
-            var ray = new Ray(new Cartesian3(ellipsoid.maximumRadius + 100.0, 0.0, 0.0), new Cartesian3(1.0, 0.0, 0.0));
+            var ray = new Ray(camera.position, Cartesian3.negate(camera.direction, new Cartesian3()));
             var featuresPromise = scene.imageryLayers.pickImageryLayerFeatures(ray, scene);
             expect(featuresPromise).toBeUndefined();
         });
 
         it('returns undefined when globe has no pickable layers', function() {
             var ellipsoid = Ellipsoid.WGS84;
-            camera.lookAt(new Cartesian3(ellipsoid.maximumRadius + 100.0, 0.0, 0.0), new Cartesian3(ellipsoid.maximumRadius, 0.0, 0.0), Cartesian3.UNIT_Z);
+            camera.lookAt(new Cartesian3(ellipsoid.maximumRadius, 0.0, 0.0), new Cartesian3(0.0, 0.0, 100.0));
 
-            var ray = new Ray(new Cartesian3(ellipsoid.maximumRadius + 100.0, 0.0, 0.0), new Cartesian3(-1.0, 0.0, 0.0));
+            var ray = new Ray(camera.position, camera.direction);
             var featuresPromise = scene.imageryLayers.pickImageryLayerFeatures(ray, scene);
             expect(featuresPromise).toBeUndefined();
         });
@@ -345,15 +343,11 @@ defineSuite([
 
             globe.imageryLayers.addImageryProvider(provider);
 
-            updateUntilDone(globe);
-
-            var features;
-
-            runs(function() {
+            return updateUntilDone(globe).then(function() {
                 var ellipsoid = Ellipsoid.WGS84;
-                camera.lookAt(new Cartesian3(ellipsoid.maximumRadius + 100.0, 0.0, 0.0), new Cartesian3(ellipsoid.maximumRadius, 0.0, 0.0), Cartesian3.UNIT_Z);
+                camera.lookAt(new Cartesian3(ellipsoid.maximumRadius, 0.0, 0.0), new Cartesian3(0.0, 0.0, 100.0));
 
-                var ray = new Ray(new Cartesian3(ellipsoid.maximumRadius + 100.0, 0.0, 0.0), new Cartesian3(-1.0, 0.0, 0.0));
+                var ray = new Ray(camera.position, camera.direction);
                 var featuresPromise = scene.imageryLayers.pickImageryLayerFeatures(ray, scene);
                 expect(featuresPromise).toBeUndefined();
             });
@@ -382,15 +376,11 @@ defineSuite([
 
             globe.imageryLayers.addImageryProvider(provider);
 
-            updateUntilDone(globe);
-
-            var features;
-
-            runs(function() {
+            return updateUntilDone(globe).then(function() {
                 var ellipsoid = Ellipsoid.WGS84;
-                camera.lookAt(new Cartesian3(ellipsoid.maximumRadius + 100.0, 0.0, 0.0), new Cartesian3(ellipsoid.maximumRadius, 0.0, 0.0), Cartesian3.UNIT_Z);
+                camera.lookAt(new Cartesian3(ellipsoid.maximumRadius, 0.0, 0.0), new Cartesian3(0.0, 0.0, 100.0));
 
-                var ray = new Ray(new Cartesian3(ellipsoid.maximumRadius + 100.0, 0.0, 0.0), new Cartesian3(-1.0, 0.0, 0.0));
+                var ray = new Ray(camera.position, camera.direction);
                 var featuresPromise = scene.imageryLayers.pickImageryLayerFeatures(ray, scene);
                 expect(featuresPromise).toBeUndefined();
             });
@@ -426,18 +416,17 @@ defineSuite([
 
             globe.imageryLayers.addImageryProvider(provider);
 
-            updateUntilDone(globe);
-
-            runs(function() {
+            return updateUntilDone(globe).then(function() {
                 var ellipsoid = Ellipsoid.WGS84;
-                camera.lookAt(new Cartesian3(ellipsoid.maximumRadius + 100.0, 0.0, 0.0), new Cartesian3(ellipsoid.maximumRadius, 0.0, 0.0), Cartesian3.UNIT_Z);
+                camera.lookAt(new Cartesian3(ellipsoid.maximumRadius, 0.0, 0.0), new Cartesian3(0.0, 0.0, 100.0));
+                camera.lookAtTransform(Matrix4.IDENTITY);
 
-                var ray = new Ray(new Cartesian3(ellipsoid.maximumRadius + 100.0, 0.0, 0.0), new Cartesian3(-1.0, 0.0, 0.0));
+                var ray = new Ray(camera.position, camera.direction);
                 var featuresPromise = scene.imageryLayers.pickImageryLayerFeatures(ray, scene);
 
                 expect(featuresPromise).toBeDefined();
 
-                waitsForPromise(featuresPromise, function(features) {
+                return featuresPromise.then(function(features) {
                     expect(features.length).toBe(1);
                     expect(features[0].name).toEqual('Foo');
                     expect(features[0].description).toContain('Foo!');
@@ -504,20 +493,17 @@ defineSuite([
 
             globe.imageryLayers.addImageryProvider(provider2);
 
-            updateUntilDone(globe);
-
-            var features;
-
-            runs(function() {
+            return updateUntilDone(globe).then(function() {
                 var ellipsoid = Ellipsoid.WGS84;
-                camera.lookAt(new Cartesian3(ellipsoid.maximumRadius + 100.0, 0.0, 0.0), new Cartesian3(ellipsoid.maximumRadius, 0.0, 0.0), Cartesian3.UNIT_Z);
+                camera.lookAt(new Cartesian3(ellipsoid.maximumRadius, 0.0, 0.0), new Cartesian3(0.0, 0.0, 100.0));
+                camera.lookAtTransform(Matrix4.IDENTITY);
 
-                var ray = new Ray(new Cartesian3(ellipsoid.maximumRadius + 100.0, 0.0, 0.0), new Cartesian3(-1.0, 0.0, 0.0));
+                var ray = new Ray(camera.position, camera.direction);
                 var featuresPromise = scene.imageryLayers.pickImageryLayerFeatures(ray, scene);
 
                 expect(featuresPromise).toBeDefined();
 
-                waitsForPromise(featuresPromise, function(features) {
+                return featuresPromise.then(function(features) {
                     expect(features.length).toBe(2);
                     expect(features[0].name).toEqual('Bar');
                     expect(features[0].description).toContain('Bar!');

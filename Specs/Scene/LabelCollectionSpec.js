@@ -4,77 +4,57 @@ defineSuite([
         'Core/BoundingSphere',
         'Core/Cartesian2',
         'Core/Cartesian3',
-        'Core/Cartographic',
         'Core/Color',
         'Core/Math',
         'Core/NearFarScalar',
-        'Renderer/ClearCommand',
         'Scene/HorizontalOrigin',
         'Scene/LabelStyle',
         'Scene/OrthographicFrustum',
-        'Scene/SceneMode',
         'Scene/VerticalOrigin',
-        'Specs/createCamera',
-        'Specs/createContext',
-        'Specs/createFrameState',
-        'Specs/destroyContext',
-        'Specs/pick',
-        'Specs/render'
+        'Specs/createScene'
     ], function(
         LabelCollection,
         BoundingSphere,
         Cartesian2,
         Cartesian3,
-        Cartographic,
         Color,
         CesiumMath,
         NearFarScalar,
-        ClearCommand,
         HorizontalOrigin,
         LabelStyle,
         OrthographicFrustum,
-        SceneMode,
         VerticalOrigin,
-        createCamera,
-        createContext,
-        createFrameState,
-        destroyContext,
-        pick,
-        render) {
+        createScene) {
     "use strict";
-    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn,runs,waits,waitsFor*/
+    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn*/
 
     // TODO: rendering tests for pixel offset, eye offset, horizontal origin, vertical origin, font, style, outlineColor, outlineWidth, and fillColor properties
 
-    var context;
-    var frameState;
-    var mockScene;
+    var scene;
+    var camera;
     var labels;
 
     beforeAll(function() {
-        context = createContext();
-        frameState = createFrameState();
-
-        context.uniformState.update(context, createFrameState(createCamera()));
-
-        mockScene = {
-            canvas: context._canvas,
-            context : context,
-            camera : frameState.camera,
-            frameState : frameState
-        };
+        scene = createScene();
+        camera = scene.camera;
     });
 
     afterAll(function() {
-        destroyContext(context);
+        scene.destroyForSpecs();
     });
 
     beforeEach(function() {
+        scene.morphTo3D(0);
+        camera.position = new Cartesian3(10.0, 0.0, 0.0);
+        camera.direction = Cartesian3.negate(Cartesian3.UNIT_X, new Cartesian3());
+        camera.up = Cartesian3.clone(Cartesian3.UNIT_Z);
         labels = new LabelCollection();
+        scene.primitives.add(labels);
     });
 
     afterEach(function() {
-        labels = labels && labels.destroy();
+        // labels are destroyed by removeAll().
+        scene.primitives.removeAll();
     });
 
     it('has default values when adding a label', function() {
@@ -166,7 +146,7 @@ defineSuite([
             font : '12pt "Open Sans"',
             text : 'Hello there'
         });
-        labels.update(context, frameState, []);
+        scene.renderForSpecs();
 
         var dimensions = label._glyphs[0].dimensions;
         expect(dimensions.height).toBeGreaterThan(0);
@@ -224,11 +204,11 @@ defineSuite([
         expect(labels.length).toEqual(0);
     });
 
-    it('isDestroyed returns false', function() {
+    it('is not destroyed', function() {
         expect(labels.isDestroyed()).toEqual(false);
     });
 
-    it('adding and removing multiple labels works', function() {
+    it('can add and remove multiple labels', function() {
         var one = labels.add();
         var two = labels.add();
         var three = labels.add();
@@ -291,11 +271,11 @@ defineSuite([
     });
 
     it('does not render when constructed', function() {
-        expect(render(context, frameState, labels)).toEqual(0);
+        expect(scene.renderForSpecs()).toEqual([0, 0, 0, 255]);
     });
 
     it('can render after modifying and removing a label', function() {
-        var label = labels.add({
+        var labelOne = labels.add({
             position : Cartesian3.ZERO,
             text : 'x',
             horizontalOrigin : HorizontalOrigin.CENTER,
@@ -308,25 +288,12 @@ defineSuite([
             verticalOrigin : VerticalOrigin.CENTER
         });
 
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
+        expect(scene.renderForSpecs()[0]).toBeGreaterThan(10);
 
-        render(context, frameState, labels);
-        expect(context.readPixels()).not.toEqual([0, 0, 0, 0]);
+        labelOne.scale = 2.0;
+        labels.remove(labelOne);
 
-        label.scale = 2.0;
-        labels.remove(label);
-
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
-
-        render(context, frameState, labels);
-
-        var p = context.readPixels();
-        expect(p[0]).toEqual(0);
-        expect(p[1]).toEqual(0);
-        expect(p[2]).toEqual(0);
-        expect((p[3] === 0) || (p[3] === 255)).toEqual(true); // ANGLE Workaround:  Blending or texture alpha channel is buggy
+        expect(scene.renderForSpecs()).toEqual([0, 0, 0, 255]);
     });
 
     it('can render a label', function() {
@@ -337,11 +304,7 @@ defineSuite([
             verticalOrigin : VerticalOrigin.CENTER
         });
 
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
-
-        render(context, frameState, labels);
-        expect(context.readPixels()).not.toEqual([0, 0, 0, 0]);
+        expect(scene.renderForSpecs()[0]).toBeGreaterThan(10);
     });
 
     it('can render after adding a label', function() {
@@ -352,14 +315,13 @@ defineSuite([
             verticalOrigin : VerticalOrigin.CENTER
         });
 
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
-
-        render(context, frameState, labels);
-        expect(context.readPixels()).not.toEqual([0, 0, 0, 0]);
+        var actual = scene.renderForSpecs();
+        expect(actual[0]).toBeGreaterThan(10);
+        expect(actual[1]).toBeGreaterThan(10);
+        expect(actual[2]).toBeGreaterThan(10);
 
         labels.add({
-            position : new Cartesian3(-0.5, 0.0, 0.0), // Closer to viewer
+            position : new Cartesian3(1.0, 0.0, 0.0), // Closer to camera
             text : 'x',
             fillColor : {
                 red : 1.0,
@@ -371,8 +333,10 @@ defineSuite([
             verticalOrigin : VerticalOrigin.CENTER
         });
 
-        render(context, frameState, labels);
-        expect(context.readPixels()).not.toEqual([0, 0, 0, 0]); // Not the most precise check
+        actual = scene.renderForSpecs();
+        expect(actual[0]).toBeGreaterThan(10);
+        expect(actual[1]).toBeLessThan(10);
+        expect(actual[2]).toBeLessThan(10);
     });
 
     it('can render after removing a label', function() {
@@ -383,18 +347,10 @@ defineSuite([
             verticalOrigin : VerticalOrigin.CENTER
         });
 
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
-
-        render(context, frameState, labels);
-        expect(context.readPixels()).not.toEqual([0, 0, 0, 0]);
-
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
+        expect(scene.renderForSpecs()[0]).toBeGreaterThan(10);
 
         labels.remove(label);
-        render(context, frameState, labels);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
+        expect(scene.renderForSpecs()).toEqual([0, 0, 0, 255]);
     });
 
     it('can render after removing and adding a label', function() {
@@ -405,18 +361,9 @@ defineSuite([
             verticalOrigin : VerticalOrigin.CENTER
         });
 
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
-
-        render(context, frameState, labels);
-        expect(context.readPixels()).not.toEqual([0, 0, 0, 0]);
+        expect(scene.renderForSpecs()[0]).toBeGreaterThan(10);
 
         labels.remove(label);
-
-        ClearCommand.ALL.execute(context);
-        render(context, frameState, labels);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
-
         labels.add({
             position : Cartesian3.ZERO,
             text : 'x',
@@ -424,9 +371,7 @@ defineSuite([
             verticalOrigin : VerticalOrigin.CENTER
         });
 
-        ClearCommand.ALL.execute(context);
-        render(context, frameState, labels);
-        expect(context.readPixels()).not.toEqual([0, 0, 0, 0]);
+        expect(scene.renderForSpecs()[0]).toBeGreaterThan(10);
     });
 
     it('can render after removing all labels', function() {
@@ -437,18 +382,10 @@ defineSuite([
             verticalOrigin : VerticalOrigin.CENTER
         });
 
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
-
-        render(context, frameState, labels);
-        expect(context.readPixels()).not.toEqual([0, 0, 0, 0]);
-
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
+        expect(scene.renderForSpecs()[0]).toBeGreaterThan(10);
 
         labels.removeAll();
-        render(context, frameState, labels);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
+        expect(scene.renderForSpecs()).toEqual([0, 0, 0, 255]);
     });
 
     it('can render after removing all labels and adding a label', function() {
@@ -459,14 +396,7 @@ defineSuite([
             verticalOrigin : VerticalOrigin.CENTER
         });
 
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
-
-        render(context, frameState, labels);
-        expect(context.readPixels()).not.toEqual([0, 0, 0, 0]);
-
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
+        expect(scene.renderForSpecs()[0]).toBeGreaterThan(10);
 
         labels.removeAll();
         labels.add({
@@ -476,29 +406,7 @@ defineSuite([
             verticalOrigin : VerticalOrigin.CENTER
         });
 
-        render(context, frameState, labels);
-        expect(context.readPixels()).not.toEqual([0, 0, 0, 0]);
-    });
-
-    it('can render with a different buffer usage', function() {
-        labels.add({
-            position : Cartesian3.ZERO,
-            text : 'x',
-            horizontalOrigin : HorizontalOrigin.CENTER,
-            verticalOrigin : VerticalOrigin.CENTER
-        });
-
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
-
-        render(context, frameState, labels);
-        expect(context.readPixels()).not.toEqual([0, 0, 0, 0]);
-
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
-
-        render(context, frameState, labels);
-        expect(context.readPixels()).not.toEqual([0, 0, 0, 0]);
+        expect(scene.renderForSpecs()[0]).toBeGreaterThan(10);
     });
 
     it('does not render labels with show set to false', function() {
@@ -509,48 +417,27 @@ defineSuite([
             verticalOrigin : VerticalOrigin.CENTER
         });
 
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
-
-        render(context, frameState, labels);
-        expect(context.readPixels()).not.toEqual([0, 0, 0, 0]);
-
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
+        expect(scene.renderForSpecs()[0]).toBeGreaterThan(10);
 
         label.show = false;
-        render(context, frameState, labels);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
+        expect(scene.renderForSpecs()).toEqual([0, 0, 0, 255]);
 
         label.show = true;
-        render(context, frameState, labels);
-        expect(context.readPixels()).not.toEqual([0, 0, 0, 0]);
+        expect(scene.renderForSpecs()[0]).toBeGreaterThan(10);
     });
 
     it('does not render labels that are behind the viewer', function() {
         var label = labels.add({
-            position : Cartesian3.ZERO,
+            position : new Cartesian3(20.0, 0.0, 0.0), // Behind camera
             text : 'x',
             horizontalOrigin : HorizontalOrigin.CENTER,
             verticalOrigin : VerticalOrigin.CENTER
         });
 
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
+        expect(scene.renderForSpecs()).toEqual([0, 0, 0, 255]);
 
-        render(context, frameState, labels);
-        expect(context.readPixels()).not.toEqual([0, 0, 0, 0]);
-
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
-
-        label.position = new Cartesian3(-2.0, 0.0, 0.0); // Behind viewer
-        render(context, frameState, labels);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
-
-        label.position = Cartesian3.ZERO; // Back in front of viewer
-        render(context, frameState, labels);
-        expect(context.readPixels()).not.toEqual([0, 0, 0, 0]);
+        label.position = Cartesian3.ZERO; // Back in front of camera
+        expect(scene.renderForSpecs()[0]).toBeGreaterThan(10);
     });
 
     it('does not render labels with a scale of zero', function() {
@@ -561,95 +448,44 @@ defineSuite([
             verticalOrigin : VerticalOrigin.CENTER
         });
 
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
-
-        render(context, frameState, labels);
-        expect(context.readPixels()).not.toEqual([0, 0, 0, 0]);
-
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
-
         label.scale = 0.0;
-        render(context, frameState, labels);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
+        expect(scene.renderForSpecs()).toEqual([0, 0, 0, 255]);
 
         label.scale = 2.0;
-        render(context, frameState, labels);
-        expect(context.readPixels()).not.toEqual([0, 0, 0, 0]);
+        expect(scene.renderForSpecs()[0]).toBeGreaterThan(10);
     });
 
-    it('render label with translucencyByDistance', function() {
+    it('renders label with translucencyByDistance', function() {
         labels.add({
             position : Cartesian3.ZERO,
             text : 'x',
             horizontalOrigin : HorizontalOrigin.CENTER,
             verticalOrigin : VerticalOrigin.CENTER,
-            translucencyByDistance: new NearFarScalar(1.0, 1.0, 3.0, 0.0)
+            translucencyByDistance: new NearFarScalar(2.0, 1.0, 4.0, 0.0)
         });
 
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
-        var us = context.uniformState;
-        var eye = new Cartesian3(0.0, 0.0, 1.0);
-        var target = Cartesian3.ZERO;
-        var up = Cartesian3.UNIT_Y;
-        us.update(context, createFrameState(createCamera({
-            eye : eye,
-            target : target,
-            up : up
-        })));
-        render(context, frameState, labels);
-        expect(context.readPixels()).not.toEqual([0, 0, 0, 0]);
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
+        camera.position = new Cartesian3(2.0, 0.0, 0.0);
+        expect(scene.renderForSpecs()[0]).toBeGreaterThan(10);
 
-        eye = new Cartesian3(0.0, 0.0, 6.0);
-        us.update(context, createFrameState(createCamera({
-            eye : eye,
-            target : target,
-            up : up
-        })));
-        render(context, frameState, labels);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
-        us.update(context, createFrameState(createCamera()));
+        camera.position = new Cartesian3(4.0, 0.0, 0.0);
+        expect(scene.renderForSpecs()).toEqual([0, 0, 0, 255]);
     });
 
-    it('render label with pixelOffsetScaleByDistance', function() {
+    it('renders label with pixelOffsetScaleByDistance', function() {
         labels.add({
             position : Cartesian3.ZERO,
             pixelOffset : new Cartesian2(1.0, 0.0),
             text : 'x',
             horizontalOrigin : HorizontalOrigin.CENTER,
             verticalOrigin : VerticalOrigin.CENTER,
-            pixelOffsetScaleByDistance: new NearFarScalar(1.0, 0.0, 3.0, 10.0)
+            pixelOffsetScaleByDistance: new NearFarScalar(2.0, 0.0, 4.0, 1000.0)
         });
 
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
-        var us = context.uniformState;
-        var eye = new Cartesian3(0.0, 0.0, 1.0);
-        var target = Cartesian3.ZERO;
-        var up = Cartesian3.UNIT_Y;
-        us.update(context, createFrameState(createCamera({
-            eye : eye,
-            target : target,
-            up : up
-        })));
-        render(context, frameState, labels);
-        expect(context.readPixels()).not.toEqual([0, 0, 0, 0]);
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
+        camera.position = new Cartesian3(2.0, 0.0, 0.0);
+        expect(scene.renderForSpecs()[0]).toBeGreaterThan(10);
 
-        eye = new Cartesian3(0.0, 0.0, 6.0);
-        us.update(context, createFrameState(createCamera({
-            eye : eye,
-            target : target,
-            up : up
-        })));
-        render(context, frameState, labels);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
-        us.update(context, createFrameState(createCamera()));
+        camera.position = new Cartesian3(4.0, 0.0, 0.0);
+        expect(scene.renderForSpecs()).toEqual([0, 0, 0, 255]);
     });
 
     it('can pick a label', function() {
@@ -661,9 +497,9 @@ defineSuite([
             id : 'id'
         });
 
-        var pickedObject = pick(context, frameState, labels, 0, 0);
-        expect(pickedObject.primitive).toEqual(label);
-        expect(pickedObject.id).toEqual('id');
+        var pick = scene.pick(new Cartesian2(0, 0));
+        expect(pick.primitive).toEqual(label);
+        expect(pick.id).toEqual('id');
     });
 
     it('can change pick id', function() {
@@ -675,15 +511,15 @@ defineSuite([
             id : 'id'
         });
 
-        var pickedObject = pick(context, frameState, labels, 0, 0);
-        expect(pickedObject.primitive).toEqual(label);
-        expect(pickedObject.id).toEqual('id');
+        var pick = scene.pick(new Cartesian2(0, 0));
+        expect(pick.primitive).toEqual(label);
+        expect(pick.id).toEqual('id');
 
         label.id = 'id2';
 
-        pickedObject = pick(context, frameState, labels, 0, 0);
-        expect(pickedObject.primitive).toEqual(label);
-        expect(pickedObject.id).toEqual('id2');
+        pick = scene.pick(new Cartesian2(0, 0));
+        expect(pick.primitive).toEqual(label);
+        expect(pick.id).toEqual('id2');
     });
 
     it('does not pick a label with show set to false', function() {
@@ -695,11 +531,11 @@ defineSuite([
             verticalOrigin : VerticalOrigin.CENTER
         });
 
-        var pickedObject = pick(context, frameState, labels, 0, 0);
-        expect(pickedObject).toBeUndefined();
+        var pick = scene.pick(new Cartesian2(0, 0));
+        expect(pick).not.toBeDefined();
     });
 
-    it('pick a label using translucencyByDistance', function() {
+    it('picks a label using translucencyByDistance', function() {
         var label = labels.add({
             position : Cartesian3.ZERO,
             text : 'x',
@@ -707,21 +543,24 @@ defineSuite([
             verticalOrigin : VerticalOrigin.CENTER
         });
 
-        var translucency = new NearFarScalar(1.0, 1.0, 3.0e9, 0.9);
+        var translucency = new NearFarScalar(1.0, 0.9, 3.0e9, 0.8);
         label.translucencyByDistance = translucency;
-        var pickedObject = pick(context, frameState, labels, 0, 0);
-        expect(pickedObject.primitive).toEqual(label);
+
+        var pick = scene.pick(new Cartesian2(0, 0));
+        expect(pick.primitive).toEqual(label);
+
         translucency.nearValue = 0.0;
         translucency.farValue = 0.0;
         label.translucencyByDistance = translucency;
-        pickedObject = pick(context, frameState, labels, 0, 0);
-        expect(pickedObject).toBeUndefined();
+
+        pick = scene.pick(new Cartesian2(0, 0));
+        expect(pick).not.toBeDefined();
     });
 
-    it('pick a label using pixelOffsetScaleByDistance', function() {
+    it('picks a label using pixelOffsetScaleByDistance', function() {
         var label = labels.add({
             position : Cartesian3.ZERO,
-            pixelOffset : new Cartesian2(0.0, 1.0),
+            pixelOffset : new Cartesian2(0.0, 100.0),
             text : 'x',
             horizontalOrigin : HorizontalOrigin.CENTER,
             verticalOrigin : VerticalOrigin.CENTER
@@ -729,13 +568,16 @@ defineSuite([
 
         var pixelOffsetScale = new NearFarScalar(1.0, 0.0, 3.0e9, 0.0);
         label.pixelOffsetScaleByDistance = pixelOffsetScale;
-        var pickedObject = pick(context, frameState, labels, 0, 0);
-        expect(pickedObject.primitive).toEqual(label);
+
+        var pick = scene.pick(new Cartesian2(0, 0));
+        expect(pick.primitive).toEqual(label);
+
         pixelOffsetScale.nearValue = 10.0;
         pixelOffsetScale.farValue = 10.0;
         label.pixelOffsetScaleByDistance = pixelOffsetScale;
-        pickedObject = pick(context, frameState, labels, 0, 0);
-        expect(pickedObject).toBeUndefined();
+
+        pick = scene.pick(new Cartesian2(0, 0));
+        expect(pick).not.toBeDefined();
     });
 
     it('throws when calling get without an index', function() {
@@ -748,65 +590,67 @@ defineSuite([
         labels.add({
             text : 'a'
         });
-        labels.update(context, frameState, []);
+        scene.renderForSpecs();
         expect(Object.keys(labels._glyphTextureCache).length).toEqual(1);
 
         labels.add({
             text : 'a'
         });
-        labels.update(context, frameState, []);
+        scene.renderForSpecs();
         expect(Object.keys(labels._glyphTextureCache).length).toEqual(1);
 
         labels.add({
             text : 'abcd'
         });
-        labels.update(context, frameState, []);
+        scene.renderForSpecs();
         expect(Object.keys(labels._glyphTextureCache).length).toEqual(4);
 
         labels.add({
             text : 'abc'
         });
-        labels.update(context, frameState, []);
+        scene.renderForSpecs();
         expect(Object.keys(labels._glyphTextureCache).length).toEqual(4);
 
         var label = labels.add({
             text : 'de'
         });
-        labels.update(context, frameState, []);
+        scene.renderForSpecs();
         expect(Object.keys(labels._glyphTextureCache).length).toEqual(5);
 
+        var originalFont = label.font;
         label.font = '30px "Open Sans"';
-        labels.update(context, frameState, []);
+        expect(label.font).not.toEqual(originalFont); // otherwise this test needs fixing.
+        scene.renderForSpecs();
         expect(Object.keys(labels._glyphTextureCache).length).toEqual(7);
 
         label.style = LabelStyle.OUTLINE;
-        labels.update(context, frameState, []);
+        scene.renderForSpecs();
         expect(Object.keys(labels._glyphTextureCache).length).toEqual(9);
 
         label.fillColor = new Color(1.0, 165.0 / 255.0, 0.0, 1.0);
-        labels.update(context, frameState, []);
+        scene.renderForSpecs();
         expect(Object.keys(labels._glyphTextureCache).length).toEqual(11);
 
         label.outlineColor = new Color(1.0, 1.0, 1.0, 1.0);
-        labels.update(context, frameState, []);
+        scene.renderForSpecs();
         expect(Object.keys(labels._glyphTextureCache).length).toEqual(13);
 
         // vertical origin only affects glyph positions, not glyphs themselves.
         label.verticalOrigin = VerticalOrigin.CENTER;
-        labels.update(context, frameState, []);
+        scene.renderForSpecs();
         expect(Object.keys(labels._glyphTextureCache).length).toEqual(13);
         label.verticalOrigin = VerticalOrigin.TOP;
-        labels.update(context, frameState, []);
+        scene.renderForSpecs();
         expect(Object.keys(labels._glyphTextureCache).length).toEqual(13);
 
-        //even though we originally started with 30px sans-serif, other properties used to create the id have changed
-        label.font = '30px sans-serif';
-        labels.update(context, frameState, []);
+        //even though we're resetting to the original font, other properties used to create the id have changed
+        label.font = originalFont;
+        scene.renderForSpecs();
         expect(Object.keys(labels._glyphTextureCache).length).toEqual(15);
 
         //Changing thickness requires new glyphs
         label.outlineWidth = 3;
-        labels.update(context, frameState, []);
+        scene.renderForSpecs();
         expect(Object.keys(labels._glyphTextureCache).length).toEqual(17);
     });
 
@@ -814,15 +658,15 @@ defineSuite([
         var label = labels.add({
             text : 'abc'
         });
-        labels.update(context, frameState, []);
+        scene.renderForSpecs();
         expect(labels._billboardCollection.length).toEqual(3);
 
         label.text = 'a';
-        labels.update(context, frameState, []);
+        scene.renderForSpecs();
         expect(labels._billboardCollection.length).toEqual(3);
 
         label.text = 'def';
-        labels.update(context, frameState, []);
+        scene.renderForSpecs();
         expect(labels._billboardCollection.length).toEqual(3);
     });
 
@@ -907,36 +751,49 @@ defineSuite([
             }).toThrowDeveloperError();
         });
 
-        it('can compute screen space position (1)', function() {
+        it('can compute screen space position', function() {
             labels.clampToPixel = false;
             var label = labels.add({
                 text : 'abc',
                 position : Cartesian3.ZERO
             });
-            labels.update(context, frameState, []);
-            expect(label.computeScreenSpacePosition(mockScene)).toEqualEpsilon(new Cartesian2(0.5, 0.5), CesiumMath.EPSILON1);
+            scene.renderForSpecs();
+            expect(label.computeScreenSpacePosition(scene)).toEqualEpsilon(new Cartesian2(0.5, 0.5), CesiumMath.EPSILON1);
         });
 
-        it('can compute screen space position (2)', function() {
+        it('stores screen space position in a result', function() {
+            labels.clampToPixel = false;
+            var label = labels.add({
+                text : 'abc',
+                position : Cartesian3.ZERO
+            });
+            var result = new Cartesian2();
+            scene.renderForSpecs();
+            var actual = label.computeScreenSpacePosition(scene, result);
+            expect(actual).toEqual(result);
+            expect(result).toEqualEpsilon(new Cartesian2(0.5, 0.5), CesiumMath.EPSILON1);
+        });
+
+        it('can compute screen space position with pixelOffset', function() {
             labels.clampToPixel = false;
             var label = labels.add({
                 text : 'abc',
                 position : Cartesian3.ZERO,
                 pixelOffset : new Cartesian2(1.0, 2.0)
             });
-            labels.update(context, frameState, []);
-            expect(label.computeScreenSpacePosition(mockScene)).toEqualEpsilon(new Cartesian2(1.5, 2.5), CesiumMath.EPSILON1);
+            scene.renderForSpecs();
+            expect(label.computeScreenSpacePosition(scene)).toEqualEpsilon(new Cartesian2(1.5, 2.5), CesiumMath.EPSILON1);
         });
 
-        it('can compute screen space position (3)', function() {
+        it('can compute screen space position with eyeOffset', function() {
             labels.clampToPixel = false;
             var label = labels.add({
                 text : 'abc',
                 position : Cartesian3.ZERO,
-                eyeOffset : new Cartesian3(5.0, -5.0, 0.0)
+                eyeOffset : new Cartesian3(1.0, 1.0, 0.0)
             });
-            labels.update(context, frameState, []);
-            expect(label.computeScreenSpacePosition(mockScene)).toEqualEpsilon(new Cartesian2(0.5, 0.5), CesiumMath.EPSILON1);
+            scene.renderForSpecs();
+            expect(label.computeScreenSpacePosition(scene)).toEqualEpsilon(new Cartesian2(0.5, 0.5), CesiumMath.EPSILON1);
         });
 
         it('can equal another label', function() {
@@ -949,7 +806,8 @@ defineSuite([
                 text : 'equals'
             });
 
-            expect(label).toEqual(otherLabel);
+            // This tests the `LabelCollection.equals` function itself, not simple equality.
+            expect(label.equals(otherLabel)).toEqual(true);
         });
 
         it('can differ from another label', function() {
@@ -960,31 +818,33 @@ defineSuite([
                 position : new Cartesian3(4.0, 5.0, 6.0)
             });
 
-            expect(label).not.toEqual(otherLabel);
+            // This tests the `LabelCollection.equals` function itself, not simple equality.
+            expect(label.equals(otherLabel)).toEqual(false);
         });
 
         it('does not equal undefined', function() {
+            // This tests the `LabelCollection.equals` function itself, not simple equality.
             var label = labels.add();
-            expect(label).not.toEqual(undefined);
+            expect(label.equals(undefined)).toEqual(false);
         });
 
         it('should have a number of glyphs equal to the number of characters', function() {
             var label = labels.add({
                 text : 'abc'
             });
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
             expect(label._glyphs.length).toEqual(3);
 
             label.text = 'abcd';
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
             expect(label._glyphs.length).toEqual(4);
 
             label.text = '';
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
             expect(label._glyphs.length).toEqual(0);
 
             label = labels.add();
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
             expect(label._glyphs.length).toEqual(0);
         });
 
@@ -992,12 +852,12 @@ defineSuite([
             var label = labels.add({
                 text : 'abc'
             });
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
             expect(label._glyphs.length).toEqual(3);
             expect(labels._billboardCollection.length).toEqual(3);
 
             label.text = ' ab c';
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
             expect(label._glyphs.length).toEqual(5);
             expect(labels._billboardCollection.length).toEqual(3);
         });
@@ -1036,7 +896,7 @@ defineSuite([
                 pixelOffsetScaleByDistance : pixelOffsetScale1
             });
 
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             label.position = position2;
             label.text = 'def';
@@ -1048,7 +908,7 @@ defineSuite([
             label.translucencyByDistance = translucency2;
             label.pixelOffsetScaleByDistance = pixelOffsetScale2;
 
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             for (var i = 0; i < label._glyphs.length; ++i) {
                 var glyph = label._glyphs[i];
@@ -1082,7 +942,7 @@ defineSuite([
                     translucencyByDistance : new NearFarScalar(1.0e4, 1.0, 1.0e6, 0.0),
                     pixelOffsetScaleByDistance : new NearFarScalar(1.0e4, 1.0, 1.0e6, 0.0)
                 });
-                labels.update(context, frameState, []);
+                scene.renderForSpecs();
             });
 
             function getGlyphBillboards() {
@@ -1095,7 +955,7 @@ defineSuite([
                 var newValue = new Cartesian3(4.0, 5.0, 6.0);
                 expect(label.position).not.toEqual(newValue);
                 label.position = newValue;
-                labels.update(context, frameState, []);
+                scene.renderForSpecs();
 
                 getGlyphBillboards().forEach(function(billboard) {
                     expect(billboard.position).toEqual(label.position);
@@ -1106,7 +966,7 @@ defineSuite([
                 var newValue = new Cartesian3(16.0, 17.0, 18.0);
                 expect(label.eyeOffset).not.toEqual(newValue);
                 label.eyeOffset = newValue;
-                labels.update(context, frameState, []);
+                scene.renderForSpecs();
 
                 getGlyphBillboards().forEach(function(billboard) {
                     expect(billboard.eyeOffset).toEqual(label.eyeOffset);
@@ -1117,7 +977,7 @@ defineSuite([
                 var newValue = new Cartesian3(16.0, 17.0, 18.0);
                 expect(label.pixelOffset).not.toEqual(newValue);
                 label.pixelOffset = newValue;
-                labels.update(context, frameState, []);
+                scene.renderForSpecs();
 
                 getGlyphBillboards().forEach(function(billboard) {
                     expect(billboard.pixelOffset).toEqual(label.pixelOffset);
@@ -1128,7 +988,7 @@ defineSuite([
                 var newValue = VerticalOrigin.BOTTOM;
                 expect(label.verticalOrigin).not.toEqual(newValue);
                 label.verticalOrigin = newValue;
-                labels.update(context, frameState, []);
+                scene.renderForSpecs();
 
                 getGlyphBillboards().forEach(function(billboard) {
                     expect(billboard.verticalOrigin).toEqual(label.verticalOrigin);
@@ -1141,7 +1001,7 @@ defineSuite([
                 var newValue = 3.0;
                 expect(label.scale).not.toEqual(newValue);
                 label.scale = newValue;
-                labels.update(context, frameState, []);
+                scene.renderForSpecs();
 
                 getGlyphBillboards().forEach(function(billboard) {
                     expect(billboard.scale).toEqual(label.scale);
@@ -1152,7 +1012,7 @@ defineSuite([
                 var newValue = 'id2';
                 expect(label.id).not.toEqual(newValue);
                 label.id = newValue;
-                labels.update(context, frameState, []);
+                scene.renderForSpecs();
 
                 getGlyphBillboards().forEach(function(billboard) {
                     expect(billboard.id).toEqual(label.id);
@@ -1163,7 +1023,7 @@ defineSuite([
                 var newValue = new NearFarScalar(1.1e4, 1.2, 1.3e6, 4.0);
                 expect(label.translucencyByDistance).not.toEqual(newValue);
                 label.translucencyByDistance = newValue;
-                labels.update(context, frameState, []);
+                scene.renderForSpecs();
 
                 getGlyphBillboards().forEach(function(billboard) {
                     expect(billboard.translucencyByDistance).toEqual(label.translucencyByDistance);
@@ -1174,7 +1034,7 @@ defineSuite([
                 var newValue = new NearFarScalar(1.5e4, 1.6, 1.7e6, 8.0);
                 expect(label.pixelOffsetScaleByDistance).not.toEqual(newValue);
                 label.pixelOffsetScaleByDistance = newValue;
-                labels.update(context, frameState, []);
+                scene.renderForSpecs();
 
                 getGlyphBillboards().forEach(function(billboard) {
                     expect(billboard.pixelOffsetScaleByDistance).toEqual(label.pixelOffsetScaleByDistance);
@@ -1185,7 +1045,7 @@ defineSuite([
                 var newValue;
                 expect(label.translucencyByDistance).not.toEqual(newValue);
                 label.translucencyByDistance = newValue;
-                labels.update(context, frameState, []);
+                scene.renderForSpecs();
 
                 getGlyphBillboards().forEach(function(billboard) {
                     expect(billboard.translucencyByDistance).toEqual(label.translucencyByDistance);
@@ -1196,7 +1056,7 @@ defineSuite([
                 var newValue;
                 expect(label.pixelOffsetScaleByDistance).not.toEqual(newValue);
                 label.pixelOffsetScaleByDistance = newValue;
-                labels.update(context, frameState, []);
+                scene.renderForSpecs();
 
                 getGlyphBillboards().forEach(function(billboard) {
                     expect(billboard.pixelOffsetScaleByDistance).toEqual(label.pixelOffsetScaleByDistance);
@@ -1210,7 +1070,7 @@ defineSuite([
                 font : '90px "Open Sans"',
                 verticalOrigin : VerticalOrigin.CENTER
             });
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             // store the offsets when vertically centered
             var offset0 = getGlyphBillboardVertexTranslate(label, 0);
@@ -1218,7 +1078,7 @@ defineSuite([
             var offset2 = getGlyphBillboardVertexTranslate(label, 2);
 
             label.verticalOrigin = VerticalOrigin.TOP;
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             // vertical origin TOP should decrease (or equal) Y offset compared to CENTER
             expect(getGlyphBillboardVertexTranslate(label, 0).y).toBeLessThanOrEqualTo(offset0.y);
@@ -1231,7 +1091,7 @@ defineSuite([
             expect(getGlyphBillboardVertexTranslate(label, 2).x).toEqual(offset2.x);
 
             label.verticalOrigin = VerticalOrigin.BOTTOM;
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             // vertical origin BOTTOM should increase (or equal) Y offset compared to CENTER
             expect(getGlyphBillboardVertexTranslate(label, 0).y).toBeGreaterThanOrEqualTo(offset0.y);
@@ -1250,7 +1110,7 @@ defineSuite([
                 font : '90px "Open Sans"',
                 horizontalOrigin : HorizontalOrigin.CENTER
             });
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             // store the offsets when horizontally centered
             var offset0 = getGlyphBillboardVertexTranslate(label, 0);
@@ -1258,7 +1118,7 @@ defineSuite([
             var offset2 = getGlyphBillboardVertexTranslate(label, 2);
 
             label.horizontalOrigin = HorizontalOrigin.LEFT;
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             // horizontal origin LEFT should increase X offset compared to CENTER
             expect(getGlyphBillboardVertexTranslate(label, 0).x).toBeGreaterThan(offset0.x);
@@ -1271,7 +1131,7 @@ defineSuite([
             expect(getGlyphBillboardVertexTranslate(label, 2).y).toEqual(offset2.y);
 
             label.horizontalOrigin = HorizontalOrigin.RIGHT;
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             // horizontal origin RIGHT should decrease X offset compared to CENTER
             expect(getGlyphBillboardVertexTranslate(label, 0).x).toBeLessThan(offset0.x);
@@ -1291,7 +1151,7 @@ defineSuite([
                 verticalOrigin : VerticalOrigin.CENTER,
                 horizontalOrigin : HorizontalOrigin.CENTER
             });
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             // store the offsets when vertically centered at scale 1
             var offset0 = getGlyphBillboardVertexTranslate(label, 0);
@@ -1299,7 +1159,7 @@ defineSuite([
             var offset2 = getGlyphBillboardVertexTranslate(label, 2);
 
             label.scale = 2;
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             // scaling by 2 should double X and Y offset
             expect(getGlyphBillboardVertexTranslate(label, 0).x).toEqual(2 * offset0.x);
@@ -1320,7 +1180,7 @@ defineSuite([
             expect(getGlyphBillboardVertexTranslate(label, 2).y).toBeLessThanOrEqualTo(offset2.y);
 
             label.verticalOrigin = VerticalOrigin.BOTTOM;
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             // vertical origin BOTTOM should increase (or equal) Y offset compared to CENTER
             expect(getGlyphBillboardVertexTranslate(label, 0).y).toBeGreaterThanOrEqualTo(offset0.y);
@@ -1329,7 +1189,7 @@ defineSuite([
 
             label.verticalOrigin = VerticalOrigin.CENTER;
             label.horizontalOrigin = HorizontalOrigin.LEFT;
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             // horizontal origin LEFT should increase X offset compared to CENTER
             expect(getGlyphBillboardVertexTranslate(label, 0).x).toBeGreaterThan(offset0.x);
@@ -1342,7 +1202,7 @@ defineSuite([
             expect(getGlyphBillboardVertexTranslate(label, 2).y).toEqual(offset2.y);
 
             label.horizontalOrigin = HorizontalOrigin.RIGHT;
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             // horizontal origin RIGHT should decrease X offset compared to CENTER
             expect(getGlyphBillboardVertexTranslate(label, 0).x).toBeLessThan(offset0.x);
@@ -1360,7 +1220,7 @@ defineSuite([
                 text : 'apl',
                 font : '90px "Open Sans"'
             });
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             var offset0 = getGlyphBillboardVertexTranslate(label, 0);
             var offset1 = getGlyphBillboardVertexTranslate(label, 1);
@@ -1369,7 +1229,7 @@ defineSuite([
             var xOffset = 20;
             var yOffset = -10;
             label.pixelOffset = new Cartesian2(xOffset, yOffset);
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             expect(getGlyphBillboardVertexTranslate(label, 0)).toEqual(offset0);
             expect(getGlyphBillboardVertexTranslate(label, 1)).toEqual(offset1);
@@ -1386,14 +1246,14 @@ defineSuite([
                 verticalOrigin : VerticalOrigin.TOP,
                 horizontalOrigin : HorizontalOrigin.LEFT
             });
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             var offset0 = getGlyphBillboardVertexTranslate(label, 0);
             var offset1 = getGlyphBillboardVertexTranslate(label, 1);
             var offset2 = getGlyphBillboardVertexTranslate(label, 2);
 
             label.font = '20px "Open Sans"';
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             // reducing font size should reduce absolute value of both X and Y offset
 
@@ -1419,7 +1279,7 @@ defineSuite([
                 verticalOrigin : verticalOrigin,
                 pixelOffset : pixelOffset
             });
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             var two = labels.add();
             two.text = text;
@@ -1428,7 +1288,7 @@ defineSuite([
             two.verticalOrigin = verticalOrigin;
             two.pixelOffset = pixelOffset;
 
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             expect(getGlyphBillboardVertexTranslate(one, 0)).toEqual(getGlyphBillboardVertexTranslate(two, 0));
             expect(getGlyphBillboardVertexTranslate(one, 1)).toEqual(getGlyphBillboardVertexTranslate(two, 1));
@@ -1439,14 +1299,14 @@ defineSuite([
             var label = labels.add({
                 text : 'apl'
             });
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             var offset0 = getGlyphBillboardVertexTranslate(label, 0);
             var offset1 = getGlyphBillboardVertexTranslate(label, 1);
             var offset2 = getGlyphBillboardVertexTranslate(label, 2);
 
             label.position = new Cartesian3(1.0, 1.0, 1.0);
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             expect(getGlyphBillboardVertexTranslate(label, 0)).toEqual(offset0);
             expect(getGlyphBillboardVertexTranslate(label, 1)).toEqual(offset1);
@@ -1457,14 +1317,14 @@ defineSuite([
             var label = labels.add({
                 text : 'apl'
             });
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             var offset0 = getGlyphBillboardVertexTranslate(label, 0);
             var offset1 = getGlyphBillboardVertexTranslate(label, 1);
             var offset2 = getGlyphBillboardVertexTranslate(label, 2);
 
             label.eyeOffset = new Cartesian3(10.0, 10.0, -10.0);
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             expect(getGlyphBillboardVertexTranslate(label, 0)).toEqual(offset0);
             expect(getGlyphBillboardVertexTranslate(label, 1)).toEqual(offset1);
@@ -1475,12 +1335,12 @@ defineSuite([
             var label = labels.add({
                 text : 'apl'
             });
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             var originalDimensions = label._glyphs[0].dimensions;
 
             label.scale = 3;
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             var dimensions = label._glyphs[0].dimensions;
             expect(dimensions.width).toEqual(originalDimensions.width);
@@ -1493,12 +1353,12 @@ defineSuite([
                 text : 'apl',
                 font : '90px "Open Sans"'
             });
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             var originalDimensions = label._glyphs[0].dimensions;
 
             label.font = '20px "Open Sans"';
-            labels.update(context, frameState, []);
+            scene.renderForSpecs();
 
             var dimensions = label._glyphs[0].dimensions;
             expect(dimensions.width).toBeLessThan(originalDimensions.width);
@@ -1508,8 +1368,6 @@ defineSuite([
     }, 'WebGL');
 
     it('computes bounding sphere in 3D', function() {
-        var projection = frameState.mapProjection;
-
         var one = labels.add({
             position : Cartesian3.fromDegrees(-50.0, -50.0, 0.0),
             text : 'one'
@@ -1519,18 +1377,17 @@ defineSuite([
             text : 'two'
         });
 
-        var commandList = [];
-        labels.update(context, frameState, commandList);
-        var actual = commandList[0].boundingVolume;
+        scene.renderForSpecs();
+        var actual = scene._commandList[0].boundingVolume;
 
         var positions = [one.position, two.position];
-        var bs = BoundingSphere.fromPoints(positions);
-        expect(actual.center).toEqual(bs.center);
-        expect(actual.radius > bs.radius).toEqual(true);
+        var expected = BoundingSphere.fromPoints(positions);
+        expect(actual.center).toEqual(expected.center);
+        expect(actual.radius).toEqual(expected.radius);
     });
 
     it('computes bounding sphere in Columbus view', function() {
-        var projection = frameState.mapProjection;
+        var projection = scene.mapProjection;
         var ellipsoid = projection.ellipsoid;
 
         var one = labels.add({
@@ -1542,33 +1399,31 @@ defineSuite([
             text : 'two'
         });
 
-        var mode = frameState.mode;
-        frameState.mode = SceneMode.COLUMBUS_VIEW;
-        var commandList = [];
-        labels.update(context, frameState, commandList);
-        var actual = commandList[0].boundingVolume;
-        frameState.mode = mode;
+        // Update scene state
+        scene.morphToColumbusView(0);
+        scene.renderForSpecs();
+        var actual = scene._commandList[0].boundingVolume;
 
         var projectedPositions = [
             projection.project(ellipsoid.cartesianToCartographic(one.position)),
             projection.project(ellipsoid.cartesianToCartographic(two.position))
         ];
-        var bs = BoundingSphere.fromPoints(projectedPositions);
-        bs.center = new Cartesian3(0.0, bs.center.x, bs.center.y);
-        expect(bs.center).toEqualEpsilon(actual.center, CesiumMath.EPSILON8);
-        expect(bs.radius).toBeLessThan(actual.radius);
+        var expected = BoundingSphere.fromPoints(projectedPositions);
+        expected.center = new Cartesian3(0.0, expected.center.x, expected.center.y);
+        expect(actual.center).toEqualEpsilon(expected.center, CesiumMath.EPSILON8);
+        expect(actual.radius).toBeGreaterThan(expected.radius);
     });
 
     it('computes bounding sphere in 2D', function() {
-        var projection = frameState.mapProjection;
+        var projection = scene.mapProjection;
         var ellipsoid = projection.ellipsoid;
 
         var one = labels.add({
-            position : ellipsoid.cartographicToCartesian(Cartographic.fromDegrees(-50.0, -50.0, 0.0)),
+            position : Cartesian3.fromDegrees(-50.0, -50.0),
             text : 'one'
         });
         var two = labels.add({
-            position : ellipsoid.cartographicToCartesian(Cartographic.fromDegrees(-50.0, 50.0, 0.0)),
+            position : Cartesian3.fromDegrees(-50.0, 50.0),
             text : 'two'
         });
 
@@ -1581,27 +1436,23 @@ defineSuite([
         orthoFrustum.near = 0.01 * maxRadii;
         orthoFrustum.far = 60.0 * maxRadii;
 
-        var mode = frameState.mode;
-        var camera = frameState.camera;
-        var frustum = camera.frustum;
-        frameState.mode = SceneMode.SCENE2D;
+        // Update scene state
+        scene.morphTo2D(0);
+        scene.renderForSpecs();
+
         camera.frustum = orthoFrustum;
 
-        var commandList = [];
-        labels.update(context, frameState, commandList);
-        var actual = commandList[0].boundingVolume;
-
-        camera.frustum = frustum;
-        frameState.mode = mode;
+        scene.renderForSpecs();
+        var actual = scene._commandList[0].boundingVolume;
 
         var projectedPositions = [
             projection.project(ellipsoid.cartesianToCartographic(one.position)),
             projection.project(ellipsoid.cartesianToCartographic(two.position))
         ];
-        var bs = BoundingSphere.fromPoints(projectedPositions);
-        bs.center = new Cartesian3(0.0, bs.center.x, bs.center.y);
-        expect(bs.center).toEqualEpsilon(actual.center, CesiumMath.EPSILON8);
-        expect(bs.radius).toBeLessThan(actual.radius);
+        var expected = BoundingSphere.fromPoints(projectedPositions);
+        expected.center = new Cartesian3(0.0, expected.center.x, expected.center.y);
+        expect(actual.center).toEqualEpsilon(expected.center, CesiumMath.EPSILON8);
+        expect(actual.radius).toBeGreaterThan(expected.radius);
     });
 
     it('Label.show throws with undefined', function() {
@@ -1756,12 +1607,12 @@ defineSuite([
         labels.add({
             text : 'a'
         });
-        labels.update(context, frameState, []);
+        scene.renderForSpecs();
 
         var textureAtlas = labels._textureAtlas;
         expect(textureAtlas.isDestroyed()).toBe(false);
 
-        labels = labels.destroy();
+        scene.primitives.removeAll();
 
         expect(textureAtlas.isDestroyed()).toBe(true);
     });

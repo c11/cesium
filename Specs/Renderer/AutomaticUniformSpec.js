@@ -4,35 +4,23 @@ defineSuite([
         'Core/Cartesian3',
         'Core/defaultValue',
         'Core/Matrix4',
-        'Core/PrimitiveType',
-        'Renderer/BufferUsage',
-        'Renderer/ClearCommand',
-        'Renderer/DrawCommand',
-        'Scene/FrameState',
         'Scene/OrthographicFrustum',
         'Scene/SceneMode',
         'Specs/createCamera',
         'Specs/createContext',
-        'Specs/createFrameState',
-        'Specs/destroyContext'
+        'Specs/createFrameState'
     ], 'Renderer/AutomaticUniforms', function(
         Cartesian2,
         Cartesian3,
         defaultValue,
         Matrix4,
-        PrimitiveType,
-        BufferUsage,
-        ClearCommand,
-        DrawCommand,
-        FrameState,
         OrthographicFrustum,
         SceneMode,
         createCamera,
         createContext,
-        createFrameState,
-        destroyContext) {
+        createFrameState) {
     "use strict";
-    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn,runs,waits,waitsFor*/
+    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn*/
 
     var context;
 
@@ -41,7 +29,7 @@ defineSuite([
     });
 
     afterAll(function() {
-        destroyContext(context);
+        context.destroyForSpecs();
     });
 
     function createMockCamera(view, projection, infiniteProjection, position, direction, right, up) {
@@ -68,38 +56,12 @@ defineSuite([
         };
     }
 
-    function verifyDraw(fs, modelMatrix) {
-        var vs = 'attribute vec4 position; void main() { gl_PointSize = 1.0; gl_Position = position; }';
-        var sp = context.createShaderProgram(vs, fs);
-
-        var va = context.createVertexArray([{
-            index : sp.vertexAttributes.position.index,
-            vertexBuffer : context.createVertexBuffer(new Float32Array([0, 0, 0, 1]), BufferUsage.STATIC_DRAW),
-            componentsPerAttribute : 4
-        }]);
-
-        ClearCommand.ALL.execute(context);
-        expect(context.readPixels()).toEqual([0, 0, 0, 0]);
-
-        var command = new DrawCommand({
-            primitiveType : PrimitiveType.POINTS,
-            shaderProgram : sp,
-            vertexArray : va,
-            modelMatrix : modelMatrix
-        });
-        command.execute(context);
-        expect(context.readPixels()).toEqual([255, 255, 255, 255]);
-
-        sp = sp.destroy();
-        va = va.destroy();
-    }
-
     it('can declare automatic uniforms', function() {
         var fs =
             'void main() { ' +
             '  gl_FragColor = vec4((czm_viewport.x == 0.0) && (czm_viewport.y == 0.0) && (czm_viewport.z == 1.0) && (czm_viewport.w == 1.0)); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_viewport', function() {
@@ -107,7 +69,7 @@ defineSuite([
             'void main() { ' +
             '  gl_FragColor = vec4((czm_viewport.x == 0.0) && (czm_viewport.y == 0.0) && (czm_viewport.z == 1.0) && (czm_viewport.w == 1.0)); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_viewportOrthographic', function() {
@@ -119,7 +81,7 @@ defineSuite([
             '  bool b3 = (czm_viewportOrthographic[0][3] == 0.0) && (czm_viewportOrthographic[1][3] == 0.0) && (czm_viewportOrthographic[2][3] == 0.0) && (czm_viewportOrthographic[3][3] == 1.0); ' +
             '  gl_FragColor = vec4(b0 && b1 && b2 && b3); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_viewportTransformation', function() {
@@ -131,7 +93,7 @@ defineSuite([
             '  bool b3 = (czm_viewportTransformation[0][3] == 0.0) && (czm_viewportTransformation[1][3] == 0.0) && (czm_viewportTransformation[2][3] == 0.0) && (czm_viewportTransformation[3][3] == 1.0); ' +
             '  gl_FragColor = vec4(b0 && b1 && b2 && b3); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_model', function() {
@@ -143,7 +105,7 @@ defineSuite([
             '  bool b3 = (czm_model[0][3] == 13.0) && (czm_model[1][3] == 14.0) && (czm_model[2][3] == 15.0) && (czm_model[3][3] == 16.0); ' +
             '  gl_FragColor = vec4(b0 && b1 && b2 && b3); ' +
             '}';
-        verifyDraw(fs, new Matrix4( 1.0,  2.0,  3.0,  4.0,
+        context.verifyDrawForSpecs(fs, undefined, new Matrix4( 1.0,  2.0,  3.0,  4.0,
             5.0,  6.0,  7.0,  8.0,
             9.0, 10.0, 11.0, 12.0,
            13.0, 14.0, 15.0, 16.0));
@@ -158,7 +120,7 @@ defineSuite([
             '  bool b3 = (czm_inverseModel[0][3] ==  0.0) && (czm_inverseModel[1][3] == 0.0) && (czm_inverseModel[2][3] == 0.0) && (czm_inverseModel[3][3] ==  1.0); ' +
             '  gl_FragColor = vec4(b0 && b1 && b2 && b3); ' +
             '}';
-        verifyDraw(fs, new Matrix4(
+        context.verifyDrawForSpecs(fs, undefined, new Matrix4(
             0.0, -1.0, 0.0, 1.0,
             1.0,  0.0, 0.0, 2.0,
             0.0,  0.0, 1.0, 0.0,
@@ -182,7 +144,7 @@ defineSuite([
             '  bool b3 = (czm_view[0][3] == 13.0) && (czm_view[1][3] == 14.0) && (czm_view[2][3] == 15.0) && (czm_view[3][3] == 16.0); ' +
             '  gl_FragColor = vec4(b0 && b1 && b2 && b3); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_view3D', function() {
@@ -202,7 +164,7 @@ defineSuite([
             '  bool b3 = (czm_view3D[0][3] == 13.0) && (czm_view3D[1][3] == 14.0) && (czm_view3D[2][3] == 15.0) && (czm_view3D[3][3] == 16.0); ' +
             '  gl_FragColor = vec4(b0 && b1 && b2 && b3); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_viewRotation', function() {
@@ -221,7 +183,7 @@ defineSuite([
             '  bool b2 = (czm_viewRotation[0][2] ==  9.0) && (czm_viewRotation[1][2] == 10.0) && (czm_viewRotation[2][2] == 11.0); ' +
             '  gl_FragColor = vec4(b0 && b1 && b2); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_viewRotation3D', function() {
@@ -240,7 +202,7 @@ defineSuite([
             '  bool b2 = (czm_viewRotation3D[0][2] ==  9.0) && (czm_viewRotation3D[1][2] == 10.0) && (czm_viewRotation3D[2][2] == 11.0); ' +
             '  gl_FragColor = vec4(b0 && b1 && b2); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_inverseView', function() {
@@ -260,7 +222,7 @@ defineSuite([
             '    (czm_inverseView[0][2] ==  0.0) && (czm_inverseView[1][2] == 0.0) && (czm_inverseView[2][2] == 1.0) && (czm_inverseView[3][2] ==  0.0)' +
             '  ); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_inverseView3D', function() {
@@ -280,7 +242,7 @@ defineSuite([
             '    (czm_inverseView3D[0][2] ==  0.0) && (czm_inverseView3D[1][2] == 0.0) && (czm_inverseView3D[2][2] == 1.0) && (czm_inverseView3D[3][2] ==  0.0)' +
             '  ); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_inverseViewRotation', function() {
@@ -300,7 +262,7 @@ defineSuite([
             '    (czm_inverseViewRotation[0][2] ==  0.0) && (czm_inverseViewRotation[1][2] == 0.0) && (czm_inverseViewRotation[2][2] == 1.0) ' +
             '  ); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_inverseViewRotation3D', function() {
@@ -320,7 +282,7 @@ defineSuite([
             '    (czm_inverseViewRotation3D[0][2] ==  0.0) && (czm_inverseViewRotation3D[1][2] == 0.0) && (czm_inverseViewRotation3D[2][2] == 1.0) ' +
             '  ); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_projection', function() {
@@ -341,7 +303,7 @@ defineSuite([
             '  bool b3 = (czm_projection[0][3] == 13.0) && (czm_projection[1][3] == 14.0) && (czm_projection[2][3] == 15.0) && (czm_projection[3][3] == 16.0); ' +
             '  gl_FragColor = vec4(b0 && b1 && b2 && b3); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_inverseProjection', function() {
@@ -362,7 +324,7 @@ defineSuite([
             '  bool b3 = (czm_inverseProjection[0][3] ==  0.0) && (czm_inverseProjection[1][3] == 0.0) && (czm_inverseProjection[2][3] == 0.0) && (czm_inverseProjection[3][3] ==  1.0); ' +
             '  gl_FragColor = vec4(b0 && b1 && b2 && b3); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_inverseProjectionOIT', function() {
@@ -383,7 +345,7 @@ defineSuite([
             '  bool b3 = (czm_inverseProjectionOIT[0][3] ==  0.0) && (czm_inverseProjectionOIT[1][3] == 0.0) && (czm_inverseProjectionOIT[2][3] == 0.0) && (czm_inverseProjectionOIT[3][3] ==  1.0); ' +
             '  gl_FragColor = vec4(b0 && b1 && b2 && b3); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_inverseProjectionOIT in 2D', function() {
@@ -406,7 +368,7 @@ defineSuite([
             '  bool b3 = (czm_inverseProjectionOIT[0][3] == 0.0) && (czm_inverseProjectionOIT[1][3] == 0.0) && (czm_inverseProjectionOIT[2][3] == 0.0) && (czm_inverseProjectionOIT[3][3] == 1.0); ' +
             '  gl_FragColor = vec4(b0 && b1 && b2 && b3); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_infiniteProjection', function() {
@@ -425,7 +387,7 @@ defineSuite([
             '  bool b3 = (czm_infiniteProjection[0][3] == 13.0) && (czm_infiniteProjection[1][3] == 14.0) && (czm_infiniteProjection[2][3] == 15.0) && (czm_infiniteProjection[3][3] == 16.0); ' +
             '  gl_FragColor = vec4(b0 && b1 && b2 && b3); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_modelView', function() {
@@ -445,7 +407,7 @@ defineSuite([
             '  bool b3 = (czm_modelView[0][3] == 0.0) && (czm_modelView[1][3] == 0.0) && (czm_modelView[2][3] == 0.0) && (czm_modelView[3][3] == 1.0); ' +
             '  gl_FragColor = vec4(b0 && b1 && b2 && b3); ' +
             '}';
-        verifyDraw(fs, new Matrix4(
+        context.verifyDrawForSpecs(fs, undefined, new Matrix4(
             2.0, 0.0, 0.0, 0.0,
             0.0, 2.0, 0.0, 0.0,
             0.0, 0.0, 2.0, 0.0,
@@ -469,7 +431,7 @@ defineSuite([
             '  bool b3 = (czm_modelView3D[0][3] == 0.0) && (czm_modelView3D[1][3] == 0.0) && (czm_modelView3D[2][3] == 0.0) && (czm_modelView3D[3][3] == 1.0); ' +
             '  gl_FragColor = vec4(b0 && b1 && b2 && b3); ' +
             '}';
-        verifyDraw(fs, new Matrix4(
+        context.verifyDrawForSpecs(fs, undefined, new Matrix4(
             2.0, 0.0, 0.0, 0.0,
             0.0, 2.0, 0.0, 0.0,
             0.0, 0.0, 2.0, 0.0,
@@ -493,7 +455,7 @@ defineSuite([
             '  bool b3 = (czm_modelViewRelativeToEye[0][3] == 0.0) && (czm_modelViewRelativeToEye[1][3] == 0.0) && (czm_modelViewRelativeToEye[2][3] == 0.0) && (czm_modelViewRelativeToEye[3][3] == 1.0); ' +
             '  gl_FragColor = vec4(b0 && b1 && b2 && b3); ' +
             '}';
-        verifyDraw(fs, new Matrix4(
+        context.verifyDrawForSpecs(fs, undefined, new Matrix4(
             2.0, 0.0, 0.0, 0.0,
             0.0, 2.0, 0.0, 0.0,
             0.0, 0.0, 2.0, 0.0,
@@ -512,7 +474,7 @@ defineSuite([
             '  bool b3 = (czm_inverseModelView[0][3] ==  0.0) && (czm_inverseModelView[1][3] == 0.0) && (czm_inverseModelView[2][3] == 0.0) && (czm_inverseModelView[3][3] ==  1.0); ' +
             '  gl_FragColor = vec4(b0 && b1 && b2 && b3); ' +
             '}';
-        verifyDraw(fs, new Matrix4(
+        context.verifyDrawForSpecs(fs, undefined, new Matrix4(
                 0.0, -1.0, 0.0, 1.0,
                 1.0,  0.0, 0.0, 2.0,
                 0.0,  0.0, 1.0, 0.0,
@@ -531,7 +493,7 @@ defineSuite([
             '  bool b3 = (czm_inverseModelView3D[0][3] ==  0.0) && (czm_inverseModelView3D[1][3] == 0.0) && (czm_inverseModelView3D[2][3] == 0.0) && (czm_inverseModelView3D[3][3] ==  1.0); ' +
             '  gl_FragColor = vec4(b0 && b1 && b2 && b3); ' +
             '}';
-        verifyDraw(fs, new Matrix4(
+        context.verifyDrawForSpecs(fs, undefined, new Matrix4(
                 0.0, -1.0, 0.0, 1.0,
                 1.0,  0.0, 0.0, 2.0,
                 0.0,  0.0, 1.0, 0.0,
@@ -559,7 +521,7 @@ defineSuite([
             '  gl_FragColor = vec4(b0 && b1 && b2 && b3); ' +
             '}';
 
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_inverseViewProjection', function() {
@@ -583,7 +545,7 @@ defineSuite([
             '  gl_FragColor = vec4(b0 && b1 && b2 && b3); ' +
             '}';
 
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_modelViewProjection', function() {
@@ -607,7 +569,7 @@ defineSuite([
             '  gl_FragColor = vec4(b0 && b1 && b2 && b3); ' +
             '}';
 
-        verifyDraw(fs, new Matrix4(
+        context.verifyDrawForSpecs(fs, undefined, new Matrix4(
                 1.0, 0.0, 0.0, 7.0,
                 0.0, 1.0, 0.0, 0.0,
                 0.0, 0.0, 1.0, 0.0,
@@ -635,7 +597,7 @@ defineSuite([
             '  gl_FragColor = vec4(b0 && b1 && b2 && b3); ' +
             '}';
 
-        verifyDraw(fs, new Matrix4(
+        context.verifyDrawForSpecs(fs, undefined, new Matrix4(
                 1.0, 0.0, 0.0, 7.0,
                 0.0, 1.0, 0.0, 0.0,
                 0.0, 0.0, 1.0, 0.0,
@@ -663,7 +625,7 @@ defineSuite([
             '  gl_FragColor = vec4(b0 && b1 && b2 && b3); ' +
             '}';
 
-        verifyDraw(fs, new Matrix4(
+        context.verifyDrawForSpecs(fs, undefined, new Matrix4(
                 1.0, 0.0, 0.0, 7.0,
                 0.0, 1.0, 0.0, 0.0,
                 0.0, 0.0, 1.0, 0.0,
@@ -692,7 +654,7 @@ defineSuite([
             '  gl_FragColor = vec4(b0 && b1 && b2 && b3); ' +
             '}';
 
-        verifyDraw(fs, new Matrix4(
+        context.verifyDrawForSpecs(fs, undefined, new Matrix4(
                 1.0, 0.0, 0.0, 7.0,
                 0.0, 1.0, 0.0, 0.0,
                 0.0, 0.0, 1.0, 0.0,
@@ -708,7 +670,7 @@ defineSuite([
             '    (czm_normal[0][2] == 0.0) && (czm_normal[1][2] == 0.0) && (czm_normal[2][2] == 1.0) ' +
             '  ); ' +
             '}';
-        verifyDraw(fs, new Matrix4(
+        context.verifyDrawForSpecs(fs, undefined, new Matrix4(
                 1.0, 0.0, 0.0, 7.0,
                 0.0, 1.0, 0.0, 8.0,
                 0.0, 0.0, 1.0, 9.0,
@@ -724,7 +686,7 @@ defineSuite([
             '    (czm_inverseNormal[0][2] ==  0.0) && (czm_inverseNormal[1][2] == 0.0) && (czm_inverseNormal[2][2] == 1.0) ' +
             '  ); ' +
             '}';
-        verifyDraw(fs, new Matrix4(
+        context.verifyDrawForSpecs(fs, undefined, new Matrix4(
                 0.0, -1.0, 0.0, 7.0,
                 1.0,  0.0, 0.0, 8.0,
                 0.0,  0.0, 1.0, 9.0,
@@ -740,7 +702,7 @@ defineSuite([
             '    (czm_normal3D[0][2] == 0.0) && (czm_normal3D[1][2] == 0.0) && (czm_normal3D[2][2] == 1.0) ' +
             '  ); ' +
             '}';
-        verifyDraw(fs, new Matrix4(
+        context.verifyDrawForSpecs(fs, undefined, new Matrix4(
                 1.0, 0.0, 0.0, 7.0,
                 0.0, 1.0, 0.0, 8.0,
                 0.0, 0.0, 1.0, 9.0,
@@ -756,7 +718,7 @@ defineSuite([
             '    (czm_inverseNormal3D[0][2] ==  0.0) && (czm_inverseNormal3D[1][2] == 0.0) && (czm_inverseNormal3D[2][2] == 1.0) ' +
             '  ); ' +
             '}';
-        verifyDraw(fs, new Matrix4(
+        context.verifyDrawForSpecs(fs, undefined, new Matrix4(
                 0.0, -1.0, 0.0, 7.0,
                 1.0,  0.0, 0.0, 8.0,
                 0.0,  0.0, 1.0, 9.0,
@@ -773,7 +735,7 @@ defineSuite([
             '  gl_FragColor = vec4(b); ' +
             '}';
 
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_entireFrustum', function() {
@@ -781,7 +743,7 @@ defineSuite([
         us.update(context, createFrameState(createMockCamera()));
 
         var fs = 'void main() { gl_FragColor = vec4((czm_entireFrustum.x == 1.0) && (czm_entireFrustum.y == 1000.0)); }';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_sunPositionWC', function() {
@@ -789,7 +751,7 @@ defineSuite([
         us.update(context, createFrameState(createMockCamera()));
 
         var fs = 'void main() { gl_FragColor = vec4(czm_sunPositionWC != vec3(0.0)); }';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_sunPositionColumbusView', function() {
@@ -797,7 +759,7 @@ defineSuite([
         us.update(context, createFrameState(createMockCamera()));
 
         var fs = 'void main() { gl_FragColor = vec4(czm_sunPositionColumbusView != vec3(0.0)); }';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_sunDirectionEC', function() {
@@ -805,7 +767,7 @@ defineSuite([
         us.update(context, createFrameState(createMockCamera()));
 
         var fs = 'void main() { gl_FragColor = vec4(czm_sunDirectionEC != vec3(0.0)); }';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_sunDirectionWC', function() {
@@ -813,7 +775,7 @@ defineSuite([
         us.update(context, createFrameState(createMockCamera()));
 
         var fs = 'void main() { gl_FragColor = vec4(czm_sunDirectionWC != vec3(0.0)); }';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_moonDirectionEC', function() {
@@ -821,7 +783,7 @@ defineSuite([
         us.update(context, createFrameState(createMockCamera()));
 
         var fs = 'void main() { gl_FragColor = vec4(czm_moonDirectionEC != vec3(0.0)); }';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_viewerPositionWC', function() {
@@ -829,7 +791,7 @@ defineSuite([
         us.update(context, createFrameState(createMockCamera()));
 
         var fs = 'void main() { gl_FragColor = vec4(czm_viewerPositionWC == vec3(0.0)); }';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_frameNumber', function() {
@@ -837,7 +799,7 @@ defineSuite([
             'void main() { ' +
             '  gl_FragColor = vec4(czm_frameNumber != 0.0); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_morphTime', function() {
@@ -845,7 +807,7 @@ defineSuite([
             'void main() { ' +
             '  gl_FragColor = vec4(czm_morphTime == 1.0); ' +   // 3D
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_temeToPseudoFixed', function() {
@@ -860,7 +822,7 @@ defineSuite([
             '    (czm_temeToPseudoFixed[0][2] == 0.0) && (czm_temeToPseudoFixed[1][2] == 0.0) && (czm_temeToPseudoFixed[2][2] == 1.0) ' +
             '  ); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_sceneMode', function() {
@@ -868,7 +830,7 @@ defineSuite([
             'void main() { ' +
             '  gl_FragColor = vec4(czm_sceneMode == 3.0); ' +   // 3D
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_sceneMode2D', function() {
@@ -876,7 +838,7 @@ defineSuite([
             'void main() { ' +
             '  gl_FragColor = vec4(czm_sceneMode2D == 2.0); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_sceneModeColumbusView', function() {
@@ -884,7 +846,7 @@ defineSuite([
             'void main() { ' +
             '  gl_FragColor = vec4(czm_sceneModeColumbusView == 1.0); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_sceneMode3D', function() {
@@ -892,7 +854,7 @@ defineSuite([
             'void main() { ' +
             '  gl_FragColor = vec4(czm_sceneMode3D == 3.0); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_sceneModeMorphing', function() {
@@ -900,7 +862,7 @@ defineSuite([
             'void main() { ' +
             '  gl_FragColor = vec4(czm_sceneModeMorphing == 0.0); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_eyeHeight2D == 0,0 in Scene3D', function() {
@@ -908,7 +870,7 @@ defineSuite([
             'void main() { ' +
             '  gl_FragColor = vec4(czm_eyeHeight2D.x == 0.0, czm_eyeHeight2D.y == 0.0, 1.0, 1.0); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 
     it('has czm_eyeHeight2D in Scene2D', function() {
@@ -930,6 +892,6 @@ defineSuite([
             'void main() { ' +
             '  gl_FragColor = vec4(czm_eyeHeight2D.x == 2.0, czm_eyeHeight2D.y == 4.0, 1.0, 1.0); ' +
             '}';
-        verifyDraw(fs);
+        context.verifyDrawForSpecs(fs);
     });
 }, 'WebGL');

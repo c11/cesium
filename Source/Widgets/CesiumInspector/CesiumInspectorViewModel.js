@@ -56,9 +56,6 @@ define([
 
     var bc = new Color(0.15, 0.15, 0.15, 0.75);
 
-    var performanceContainer = document.createElement('div');
-    performanceContainer.className = 'cesium-cesiumInspector-performanceDisplay';
-
     /**
      * The view model for {@link CesiumInspector}.
      * @alias CesiumInspectorViewModel
@@ -68,20 +65,26 @@ define([
      *
      * @exception {DeveloperError} scene is required.
      */
-    var CesiumInspectorViewModel = function(scene) {
+    var CesiumInspectorViewModel = function(scene, performanceContainer) {
+        //>>includeStart('debug', pragmas.debug);
         if (!defined(scene)) {
             throw new DeveloperError('scene is required');
         }
 
+        if (!defined(performanceContainer)) {
+            throw new DeveloperError('performanceContainer is required');
+        }
+        //>>includeEnd('debug');
+
         var that = this;
         var canvas = scene.canvas;
-        canvas.parentNode.appendChild(performanceContainer);
         this._scene = scene;
         this._canvas = canvas;
         this._primitive = undefined;
         this._tile = undefined;
         this._modelMatrixPrimitive = undefined;
         this._performanceDisplay = undefined;
+        this._performanceContainer = performanceContainer;
 
         var globe = this._scene.globe;
         globe.depthTestAgainstTerrain = true;
@@ -99,6 +102,13 @@ define([
          * @default false
          */
         this.performance = false;
+
+        /**
+         * Gets or sets the shader cache text.  This property is observable.
+         * @type {String}
+         * @default ''
+         */
+        this.shaderCacheText = '';
 
         /**
          * Gets or sets the show primitive bounding sphere state.  This property is observable.
@@ -247,7 +257,7 @@ define([
          */
         this.terrainSwitchText = '+';
 
-        knockout.track(this, ['filterTile', 'suspendUpdates', 'dropDownVisible', 'frustums',
+        knockout.track(this, ['filterTile', 'suspendUpdates', 'dropDownVisible', 'shaderCacheText', 'frustums',
                               'frustumStatisticText', 'pickTileActive', 'pickPrimitiveActive', 'hasPickedPrimitive',
                               'hasPickedTile', 'tileText', 'generalVisible', 'generalSwitchText',
                               'primitivesVisible', 'primitivesSwitchText', 'terrainVisible', 'terrainSwitchText']);
@@ -283,12 +293,12 @@ define([
         this._showPerformance = createCommand(function() {
             if (that.performance) {
                 that._performanceDisplay = new PerformanceDisplay({
-                    container : performanceContainer,
+                    container : that._performanceContainer,
                     backgroundColor : bc,
                     font : '12px arial,sans-serif'
                 });
             } else {
-                performanceContainer.innerHTML = '';
+                that._performanceContainer.innerHTML = '';
             }
             return true;
         });
@@ -318,7 +328,7 @@ define([
                     if (defined(that._modelMatrixPrimitive) && command.owner === that._modelMatrixPrimitive._primitive) {
                         return true;
                     } else if (defined(that._primitive)) {
-                        return command.owner === that._primitive || command.owner === that._primitive._billboardCollection;
+                        return command.owner === that._primitive || command.owner === that._primitive._billboardCollection || command.owner.primitive === that._primitive;
                     }
                     return false;
                 };
@@ -454,6 +464,18 @@ define([
         scene : {
             get : function() {
                 return this._scene;
+            }
+        },
+
+        /**
+         * Gets the container of the PerformanceDisplay
+         * @memberof CesiumInspectorViewModel.prototype
+         *
+         * @type {Element}
+         */
+        performanceContainer : {
+            get : function() {
+                return this._performanceContainer;
             }
         },
 
@@ -803,6 +825,8 @@ define([
                     if (that.primitiveReferenceFrame) {
                         that._modelMatrixPrimitive.modelMatrix = that._primitive.modelMatrix;
                     }
+
+                    that.shaderCacheText = 'Cached shaders: ' + that._scene.context.shaderCache.numberOfShaders;
                 };
             }
         }

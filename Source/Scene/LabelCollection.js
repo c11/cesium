@@ -223,7 +223,7 @@ define([
         for (glyphIndex = 0; glyphIndex < glyphLength; ++glyphIndex) {
             glyph = glyphs[glyphIndex];
             dimensions = glyph.dimensions;
-            totalWidth += dimensions.width;
+            totalWidth += dimensions.computedWidth;
             maxHeight = Math.max(maxHeight, dimensions.height);
         }
 
@@ -258,7 +258,7 @@ define([
                 glyph.billboard._setTranslate(glyphPixelOffset);
             }
 
-            glyphPixelOffset.x += dimensions.width * scale * resolutionScale;
+            glyphPixelOffset.x += dimensions.computedWidth * scale * resolutionScale;
         }
     }
 
@@ -304,13 +304,13 @@ define([
      *
      * @example
      * // Create a label collection with two labels
-     * var labels = new Cesium.LabelCollection();
+     * var labels = scene.primitives.add(new Cesium.LabelCollection());
      * labels.add({
-     *   position : { x : 1.0, y : 2.0, z : 3.0 },
+     *   position : new Cesium.Cartesian3(1.0, 2.0, 3.0),
      *   text : 'A label'
      * });
      * labels.add({
-     *   position : { x : 4.0, y : 5.0, z : 6.0 },
+     *   position : new Cesium.Cartesian3(4.0, 5.0, 6.0),
      *   text : 'Another label'
      * });
      */

@@ -15,35 +15,49 @@ define([
         Property) {
     "use strict";
 
-    function resolve(that) {
-        var targetProperty = that._targetProperty;
-        if (!defined(targetProperty)) {
-            var targetEntity = that._targetEntity;
+    function resolveEntity(that) {
+        var entityIsResolved = true;
+        if (that._resolveEntity) {
+            var targetEntity = that._targetCollection.getById(that._targetId);
 
-            if (!defined(targetEntity)) {
-                var targetCollection = that._targetCollection;
-
-                targetEntity = targetCollection.getById(that._targetId);
-                if (!defined(targetEntity)) {
-                    throw new RuntimeError('target entity "' + that._targetId + '" could not be resolved.');
-                }
+            if (defined(targetEntity)) {
                 targetEntity.definitionChanged.addEventListener(ReferenceProperty.prototype._onTargetEntityDefinitionChanged, that);
                 that._targetEntity = targetEntity;
+                that._resolveEntity = false;
+            } else {
+                //The property has become detached.  It has a valid value but is not currently resolved to an entity in the collection
+                targetEntity = that._targetEntity;
+                entityIsResolved = false;
             }
+
+            if (!defined(targetEntity)) {
+                throw new RuntimeError('target entity "' + that._targetId + '" could not be resolved.');
+            }
+        }
+        return entityIsResolved;
+    }
+
+    function resolve(that) {
+        var targetProperty = that._targetProperty;
+
+        if (that._resolveProperty) {
+            var entityIsResolved = resolveEntity(that);
 
             var names = that._targetPropertyNames;
-
-            targetProperty = targetEntity;
+            targetProperty = that._targetEntity;
             var length = names.length;
-            for (var i = 0; i < length; i++) {
+            for (var i = 0; i < length && defined(targetProperty); i++) {
                 targetProperty = targetProperty[names[i]];
-                if (!defined(targetProperty)) {
-                    throw new RuntimeError('targetProperty "' + names[i] + '" could not be resolved.');
-                }
             }
 
-            that._targetProperty = targetProperty;
+            if (defined(targetProperty)) {
+                that._targetProperty = targetProperty;
+                that._resolveProperty = !entityIsResolved;
+            } else if (!defined(that._targetProperty)) {
+                throw new RuntimeError('targetProperty "' + that._targetId + '.' + names.join('.') + '" could not be resolved.');
+            }
         }
+
         return targetProperty;
     }
 
@@ -61,30 +75,30 @@ define([
      * var collection = new Cesium.EntityCollection();
      *
      * //Create a new entity and assign a billboard scale.
-     * var object1 = new Cesium.Entity('object1');
+     * var object1 = new Cesium.Entity({id:'object1'});
      * object1.billboard = new Cesium.BillboardGraphics();
      * object1.billboard.scale = new Cesium.ConstantProperty(2.0);
      * collection.add(object1);
      *
      * //Create a second entity and reference the scale from the first one.
-     * var object2 = new Cesium.Entity('object2');
+     * var object2 = new Cesium.Entity({id:'object2'});
      * object2.model = new Cesium.ModelGraphics();
      * object2.model.scale = new Cesium.ReferenceProperty(collection, 'object1', ['billboard', 'scale']);
      * collection.add(object2);
      *
      * //Create a third object, but use the fromString helper function.
-     * var object3 = new Cesium.Entity('object3');
+     * var object3 = new Cesium.Entity({id:'object3'});
      * object3.billboard = new Cesium.BillboardGraphics();
      * object3.billboard.scale = Cesium.ReferenceProperty.fromString(collection, 'object1#billboard.scale');
      * collection.add(object3);
      *
      * //You can refer to an entity with a # or . in id and property names by escaping them.
-     * var object4 = new Cesium.Entity('#object.4');
+     * var object4 = new Cesium.Entity({id:'#object.4'});
      * object4.billboard = new Cesium.BillboardGraphics();
      * object4.billboard.scale = new Cesium.ConstantProperty(2.0);
      * collection.add(object4);
      *
-     * var object5 = new Cesium.Entity('object5');
+     * var object5 = new Cesium.Entity({id:'object5'});
      * object5.billboard = new Cesium.BillboardGraphics();
      * object5.billboard.scale = Cesium.ReferenceProperty.fromString(collection, '\\#object\\.4#billboard.scale');
      * collection.add(object5);
@@ -114,6 +128,8 @@ define([
         this._targetProperty = undefined;
         this._targetEntity = undefined;
         this._definitionChanged = new Event();
+        this._resolveEntity = true;
+        this._resolveProperty = true;
 
         targetCollection.collectionChanged.addEventListener(ReferenceProperty.prototype._onCollectionChanged, this);
     };
@@ -321,7 +337,7 @@ define([
 
     ReferenceProperty.prototype._onTargetEntityDefinitionChanged = function(targetEntity, name, value, oldValue) {
         if (this._targetPropertyNames[0] === name) {
-            this._targetProperty = undefined;
+            this._resolveProperty = true;
             this._definitionChanged.raiseEvent(this);
         }
     };
@@ -331,9 +347,16 @@ define([
         if (defined(targetEntity)) {
             if (removed.indexOf(targetEntity) !== -1) {
                 targetEntity.definitionChanged.removeEventListener(ReferenceProperty.prototype._onTargetEntityDefinitionChanged, this);
-                this._targetProperty = undefined;
-                this._targetEntity = undefined;
-                this._definitionChanged.raiseEvent(this);
+                this._resolveEntity = true;
+                this._resolveProperty = true;
+            } else if (this._resolveEntity) {
+                //If targetEntity is defined but resolveEntity is true, then the entity is detached
+                //and any change to the collection needs to incur an attempt to resolve in order to re-attach.
+                //without this if block, a reference that becomes re-attached will not signal definitionChanged
+                resolve(this);
+                if (!this._resolveEntity) {
+                    this._definitionChanged.raiseEvent(this);
+                }
             }
         }
     };

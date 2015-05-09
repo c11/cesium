@@ -2,7 +2,6 @@
 defineSuite([
         'Scene/PrimitiveCollection',
         'Core/Cartesian3',
-        'Core/Cartographic',
         'Core/defaultValue',
         'Core/Ellipsoid',
         'Core/Math',
@@ -14,13 +13,11 @@ defineSuite([
         'Specs/createCamera',
         'Specs/createContext',
         'Specs/createFrameState',
-        'Specs/destroyContext',
         'Specs/pick',
         'Specs/render'
     ], function(
         PrimitiveCollection,
         Cartesian3,
-        Cartographic,
         defaultValue,
         Ellipsoid,
         CesiumMath,
@@ -32,11 +29,10 @@ defineSuite([
         createCamera,
         createContext,
         createFrameState,
-        destroyContext,
         pick,
         render) {
     "use strict";
-    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn,runs,waits,waitsFor*/
+    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn*/
 
     var context;
     var primitives;
@@ -50,7 +46,7 @@ defineSuite([
     });
 
     afterAll(function() {
-        destroyContext(context);
+        context.destroyForSpecs();
     });
 
     beforeEach(function() {
@@ -92,10 +88,12 @@ defineSuite([
         var polygon = new Polygon();
         polygon.ellipsoid = ellipsoid;
         polygon.granularity = CesiumMath.toRadians(20.0);
-        polygon.positions = [ellipsoid.cartographicToCartesian(Cartographic.fromDegrees(-degree, -degree, 0.0)),
-                              ellipsoid.cartographicToCartesian(Cartographic.fromDegrees( degree, -degree, 0.0)),
-                              ellipsoid.cartographicToCartesian(Cartographic.fromDegrees( degree,  degree, 0.0)),
-                              ellipsoid.cartographicToCartesian(Cartographic.fromDegrees(-degree,  degree, 0.0))];
+        polygon.positions = Cartesian3.fromDegreesArray([
+            -degree, -degree,
+            degree, -degree,
+            degree,  degree,
+            -degree,  degree
+        ], ellipsoid);
         polygon.asynchronous = false;
         return polygon;
     }

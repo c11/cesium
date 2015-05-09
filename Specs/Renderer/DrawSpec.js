@@ -2,29 +2,25 @@
 defineSuite([
         'Core/BoundingRectangle',
         'Core/Color',
-        'Core/FeatureDetection',
         'Core/IndexDatatype',
         'Core/PrimitiveType',
         'Core/WindingOrder',
         'Renderer/BufferUsage',
         'Renderer/ClearCommand',
         'Renderer/DrawCommand',
-        'Specs/createContext',
-        'Specs/destroyContext'
+        'Specs/createContext'
     ], 'Renderer/Draw', function(
         BoundingRectangle,
         Color,
-        FeatureDetection,
         IndexDatatype,
         PrimitiveType,
         WindingOrder,
         BufferUsage,
         ClearCommand,
         DrawCommand,
-        createContext,
-        destroyContext) {
+        createContext) {
     "use strict";
-    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn,runs,waits,waitsFor,WebGLRenderingContext*/
+    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn,WebGLRenderingContext*/
 
     var context;
     var sp;
@@ -39,7 +35,7 @@ defineSuite([
     });
 
     afterAll(function() {
-        destroyContext(context);
+        context.destroyForSpecs();
     });
 
     afterEach(function() {
@@ -101,7 +97,7 @@ defineSuite([
 
         sp = sp.destroy();
         va = va.destroy();
-        destroyContext(cxt);
+        cxt.destroyForSpecs();
     });
 
     it('draws a red point with two vertex buffers', function() {
@@ -360,11 +356,6 @@ defineSuite([
     });
 
     it('draws with blend color', function() {
-        if (FeatureDetection.isInternetExplorer()) {
-            // blendColor is not supported in IE 11.0.8
-            return;
-        }
-
         var vs = 'attribute vec4 position; void main() { gl_PointSize = 1.0; gl_Position = position; }';
         var fs = 'void main() { gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0); }';
         sp = context.createShaderProgram(vs, fs);
@@ -548,12 +539,6 @@ defineSuite([
     });
 
     it('draws with depth range', function() {
-        if (FeatureDetection.isInternetExplorer()) {
-            // gl_DepthRange is not supported in IE 11.0.8.
-            // When needed, Cesium will fully workaround this with czm_depthRange.
-            return;
-        }
-
         var vs = 'attribute vec4 position; void main() { gl_PointSize = 1.0; gl_Position = position; }';
         var fs = 'void main() { gl_FragColor = vec4(gl_DepthRange.near, gl_DepthRange.far, 0.0, 1.0); }';
         sp = context.createShaderProgram(vs, fs);
@@ -646,11 +631,6 @@ defineSuite([
     it('draws with sample coverage', function() {
         if (!context.antialias) {
             // Sample coverage requires antialiasing.
-            return;
-        }
-
-        if (FeatureDetection.isInternetExplorer()) {
-            // sampleCoverage is not supported in IE 11.0.8
             return;
         }
 

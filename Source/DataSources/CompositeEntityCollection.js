@@ -17,6 +17,9 @@ define([
         EntityCollection) {
     "use strict";
 
+    var entityOptionsScratch = {
+        id : undefined
+    };
     var entityIdScratch = new Array(2);
 
     function clean(entity) {
@@ -66,7 +69,7 @@ define([
         for (i = 0; i < collectionsCopyLength; i++) {
             collection = collectionsCopy[i];
             collection.collectionChanged.removeEventListener(CompositeEntityCollection.prototype._onCollectionChanged, that);
-            entities = collection.entities;
+            entities = collection.values;
             collectionId = collection.id;
             for (iEntities = entities.length - 1; iEntities > -1; iEntities--) {
                 entity = entities[iEntities];
@@ -79,7 +82,7 @@ define([
             collection.collectionChanged.addEventListener(CompositeEntityCollection.prototype._onCollectionChanged, that);
 
             //Merge all of the existing entities.
-            entities = collection.entities;
+            entities = collection.values;
             collectionId = collection.id;
             for (iEntities = entities.length - 1; iEntities > -1; iEntities--) {
                 entity = entities[iEntities];
@@ -89,7 +92,8 @@ define([
                 if (!defined(compositeEntity)) {
                     compositeEntity = composite.getById(entity.id);
                     if (!defined(compositeEntity)) {
-                        compositeEntity = new Entity(entity.id);
+                        entityOptionsScratch.id = entity.id;
+                        compositeEntity = new Entity(entityOptionsScratch);
                     } else {
                         clean(compositeEntity);
                     }
@@ -102,7 +106,7 @@ define([
 
         composite.suspendEvents();
         composite.removeAll();
-        var newEntitiesArray = newEntities.entities;
+        var newEntitiesArray = newEntities.values;
         for (i = 0; i < newEntitiesArray.length; i++) {
             composite.add(newEntitiesArray[i]);
         }
@@ -164,9 +168,9 @@ define([
          * @readonly
          * @type {Entity[]}
          */
-        entities : {
+        values : {
             get : function() {
-                return this._composite.entities;
+                return this._composite.values;
             }
         }
     });
@@ -238,6 +242,16 @@ define([
      */
     CompositeEntityCollection.prototype.containsCollection = function(collection) {
         return this._collections.indexOf(collection) !== -1;
+    };
+
+    /**
+     * Returns true if the provided entity is in this collection, false otherwise.
+     *
+     * @param entity The entity.
+     * @returns {Boolean} true if the provided entity is in this collection, false otherwise.
+     */
+    CompositeEntityCollection.prototype.contains = function(entity) {
+        return this._composite.contains(entity);
     };
 
     /**
@@ -465,6 +479,7 @@ define([
             if (!defined(compositeEntity)) {
                 composite.removeById(removedId);
             }
+            compositeEntity = undefined;
         }
 
         var addedLength = added.length;
@@ -482,7 +497,8 @@ define([
                     if (!defined(compositeEntity)) {
                         compositeEntity = composite.getById(addedId);
                         if (!defined(compositeEntity)) {
-                            compositeEntity = new Entity(addedId);
+                            entityOptionsScratch.id = addedId;
+                            compositeEntity = new Entity(entityOptionsScratch);
                             composite.add(compositeEntity);
                         } else {
                             clean(compositeEntity);
@@ -491,6 +507,7 @@ define([
                     compositeEntity.merge(entity);
                 }
             }
+            compositeEntity = undefined;
         }
 
         composite.resumeEvents();
@@ -504,6 +521,7 @@ define([
         var id = entity.id;
         var compositeEntity = composite.getById(id);
         var compositeProperty = compositeEntity[propertyName];
+        var newProperty = !defined(compositeProperty);
 
         var firstTime = true;
         for (var q = collectionsLength - 1; q >= 0; q--) {
@@ -527,6 +545,11 @@ define([
                 }
             }
         }
+
+        if (newProperty && compositeEntity.propertyNames.indexOf(propertyName) === -1) {
+            compositeEntity.addProperty(propertyName);
+        }
+
         compositeEntity[propertyName] = compositeProperty;
     };
 

@@ -3,22 +3,30 @@ define([
         'Core/clone',
         'Core/defaultValue',
         'Core/defined',
+        'Core/queryToObject',
         'Scene/Scene',
         'Specs/createCanvas',
-        'Specs/getQueryParameters'
+        'Specs/destroyCanvas'
     ], function(
         clone,
         defaultValue,
         defined,
+        queryToObject,
         Scene,
         createCanvas,
-        getQueryParameters) {
+        destroyCanvas) {
     "use strict";
 
     function createScene(options) {
-        options = clone(defaultValue(options, {}), true);
+        options = defaultValue(options, {});
 
-        options.canvas = defaultValue(options.canvas, createCanvas());
+        // save the canvas so we don't try to clone an HTMLCanvasElement
+        var canvas = defined(options.canvas) ? options.canvas : createCanvas();
+        options.canvas = undefined;
+
+        options = clone(options, true);
+
+        options.canvas = canvas;
         options.contextOptions = defaultValue(options.contextOptions, {});
 
         var contextOptions = options.contextOptions;
@@ -27,7 +35,7 @@ define([
 
         var scene = new Scene(options);
 
-        var parameters = getQueryParameters();
+        var parameters = queryToObject(window.location.search.substring(1));
         if (defined(parameters.webglValidation)) {
             var context = scene.context;
             context.validateShaderProgram = true;
@@ -37,11 +45,19 @@ define([
         }
 
         // Add functions for test
+        scene.destroyForSpecs = function() {
+            var canvas = scene.canvas;
+            scene.destroy();
+            destroyCanvas(canvas);
+        };
+
         scene.renderForSpecs = function(time) {
             scene.initializeFrame();
             scene.render(time);
             return scene.context.readPixels();
         };
+
+        scene.rethrowRenderErrors = defaultValue(options.rethrowRenderErrors, true);
 
         return scene;
     }

@@ -2,7 +2,6 @@
 defineSuite([
         'Scene/Material',
         'Core/Cartesian3',
-        'Core/Cartographic',
         'Core/Color',
         'Core/Ellipsoid',
         'Core/Math',
@@ -12,12 +11,10 @@ defineSuite([
         'Specs/createCamera',
         'Specs/createContext',
         'Specs/createFrameState',
-        'Specs/destroyContext',
         'Specs/render'
     ], function(
         Material,
         Cartesian3,
-        Cartographic,
         Color,
         Ellipsoid,
         CesiumMath,
@@ -27,10 +24,9 @@ defineSuite([
         createCamera,
         createContext,
         createFrameState,
-        destroyContext,
         render) {
     "use strict";
-    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn,runs,waits,waitsFor*/
+    /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn*/
 
     var context;
     var frameState;
@@ -45,33 +41,33 @@ defineSuite([
     });
 
     afterAll(function() {
-        destroyContext(context);
+        context.destroyForSpecs();
     });
 
     beforeEach(function() {
         us = context.uniformState;
         us.update(context, createFrameState(createCamera({
-            eye : new Cartesian3(1.02, 0.0, 0.0),
-            target : Cartesian3.ZERO,
-            up : Cartesian3.UNIT_Z
+            offset : new Cartesian3(1.02, 0.0, 0.0)
         })));
 
         var ellipsoid = Ellipsoid.UNIT_SPHERE;
         polygon = new Polygon();
         polygon.ellipsoid = ellipsoid;
         polygon.granularity = CesiumMath.toRadians(20.0);
-        polygon.positions = [ellipsoid.cartographicToCartesian(Cartographic.fromDegrees(-50.0, -50.0, 0.0)),
-            ellipsoid.cartographicToCartesian(Cartographic.fromDegrees(50.0, -50.0, 0.0)),
-            ellipsoid.cartographicToCartesian(Cartographic.fromDegrees(50.0, 50.0, 0.0)),
-            ellipsoid.cartographicToCartesian(Cartographic.fromDegrees(-50.0, 50.0, 0.0))];
+        polygon.positions = Cartesian3.fromDegreesArray([
+            -50.0, -50.0,
+            50.0, -50.0,
+            50.0, 50.0,
+            -50.0, 50.0
+        ], ellipsoid);
         polygon.asynchronous = false;
 
         polylines = new PolylineCollection();
         polyline = polylines.add({
-            positions : [
-                ellipsoid.cartographicToCartesian(Cartographic.fromDegrees(-50.0, 0.0, 0.0)),
-                ellipsoid.cartographicToCartesian(Cartographic.fromDegrees( 50.0, 0.0, 0.0))
-            ],
+            positions : Cartesian3.fromDegreesArray([
+                -50.0, 0.0,
+                50.0, 0.0
+            ], ellipsoid),
             width : 5.0
         });
     });
@@ -322,6 +318,28 @@ defineSuite([
                 }
             }
         });
+        var pixel = renderMaterial(material);
+        expect(pixel).not.toEqual([0, 0, 0, 0]);
+    });
+
+    it('creates a material with an image canvas uniform', function() {
+        var canvas = document.createElement('canvas');
+        var context2D = canvas.getContext('2d');
+        context2D.width = 1;
+        context2D.height = 1;
+        context2D.fillStyle = 'rgb(0,0,255)';
+        context2D.fillRect(0, 0, 1, 1);
+
+        var material = new Material({
+            strict : true,
+            fabric : {
+                type : 'DiffuseMap',
+                uniforms : {
+                    image : canvas
+                }
+            }
+        });
+
         var pixel = renderMaterial(material);
         expect(pixel).not.toEqual([0, 0, 0, 0]);
     });
